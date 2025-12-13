@@ -13,11 +13,25 @@
     textarea { min-height: 110px; resize: vertical; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .btns { display:flex; gap:10px; flex-wrap: wrap; margin-top: 12px; }
-    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 700; }
+    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 800; }
     button.primary { background: #111; color: #fff; }
     button.secondary { background: #eee; }
     .hint { color:#555; font-size: 13px; margin-top: 6px; }
     .small { font-size: 12px; color:#666; }
+    .hr { height:1px; background:#eee; margin:16px 0; }
+
+    /* شرح التشفير */
+    .toggle { display:flex; align-items:center; justify-content: space-between; gap:10px; }
+    .toggle button { font-weight: 800; }
+    .panel { border:1px dashed #ddd; border-radius: 12px; padding: 14px; background:#fafafa; display:none; margin-top: 10px; }
+    .panel.open { display:block; }
+    .panel h2 { margin: 0 0 10px; font-size: 16px; }
+    .panel h3 { margin: 14px 0 6px; font-size: 14px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#f2f2f2; padding:8px; border-radius:10px; white-space: pre-wrap; }
+    table { width:100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border:1px solid #ddd; padding: 8px; text-align:center; }
+    th { background:#f3f3f3; }
+
     @media (max-width: 800px){ .row{grid-template-columns: 1fr;} }
     code { background:#f6f6f6; padding: 2px 6px; border-radius: 6px; }
   </style>
@@ -33,7 +47,7 @@
       <div>
         <label>نوع الشفرة</label>
         <select id="mode">
-          <option value="arabic_numbers">1) ترقيم الحروف العربية (أ=1...)</option>
+          <option value="arabic_numbers">1) ترقيم الحروف العربية (ا=1...)</option>
           <option value="caesar_ar">2) قيصر عربي (إزاحة)</option>
           <option value="vigenere_ar">3) Vigenère عربي (مفتاح كلمة)</option>
           <option value="atbash_ar">4) Atbash عربي (عكس الحروف)</option>
@@ -60,15 +74,38 @@
     <label>الناتج</label>
     <textarea id="out" placeholder="سيظهر هنا النص المشفّر أو المفكوك"></textarea>
 
-    <p class="small">
-      ✅ هذا مناسب لألغاز “لعبة الكنز”. ليس للتشفير الأمني الحقيقي.
-    </p>
+    <div class="hr"></div>
+
+    <!-- زر شرح التشفير -->
+    <div class="toggle">
+      <div style="font-weight:800;">📘 شرح التشفير (يتغير حسب النوع المختار)</div>
+      <button class="secondary" id="toggleHelpBtn">إظهار الشرح</button>
+    </div>
+    <div class="panel" id="helpPanel">
+      <h2 id="helpTitle">شرح</h2>
+      <div id="helpText"></div>
+
+      <div id="exampleBlock" style="margin-top:10px;">
+        <h3>مثال سريع</h3>
+        <div class="mono" id="helpExample"></div>
+      </div>
+
+      <div id="tableBlock" style="margin-top:10px;">
+        <h3 id="tableTitle">جدول الحروف</h3>
+        <div id="helpTable"></div>
+      </div>
+
+      <p class="small" style="margin-top:10px;">
+        ✅ مناسب للألغاز ولعبة الكنز. ليس للتشفير الأمني الحقيقي.
+      </p>
+    </div>
+
   </div>
 
 <script>
 /** ===== Alphabet handling (Arabic) =====
- * نستخدم أبجدية عربية “مبسطة” لعمليات الإزاحة.
- * الحروف المختلفة مثل (أ،إ،آ) نحولها إلى (ا) عشان تكون اللعبة سهلة.
+ * أبجدية عربية “مبسطة” للإزاحة/الجداول.
+ * نطبع الشرح بالحروف بدون تفلسف عشان تكون لعبة كنز سهلة.
  */
 const ALPH = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي";
 const normMap = new Map([
@@ -101,13 +138,11 @@ function shiftArabicChar(ch, shift){
 
 /** ===== 1) Arabic letters to numbers ===== */
 function arabicToNumbers(text){
-  // كل حرف عربي -> رقم (1..N). نفصلها بشرطة.
   const parts = [];
   for (const ch of text){
     if (isArabicLetter(ch)){
       parts.push(String(alphaIndex(ch) + 1));
     } else {
-      // نخلي المسافة / الرموز كما هي لكن بفاصل واضح
       if (ch === " ") parts.push("|"); // فاصل كلمات
       else parts.push(ch);
     }
@@ -116,8 +151,6 @@ function arabicToNumbers(text){
 }
 
 function numbersToArabic(text){
-  // نتوقع صيغة: 1-2-| -... مع | كفاصل كلمات
-  // نسمح بوجود حروف/رموز خارجية
   const tokens = text.split("-");
   let out = "";
   for (const t of tokens){
@@ -125,9 +158,8 @@ function numbersToArabic(text){
     if (/^\d+$/.test(t)){
       const num = parseInt(t,10);
       if (num >= 1 && num <= ALPH.length) out += ALPH[num-1];
-      else out += t; // رقم خارج النطاق
+      else out += t;
     } else {
-      // token قد يكون رمز أو حرف
       out += t;
     }
   }
@@ -154,7 +186,6 @@ function caesarDecrypt(text, key){
 function vigenereEncrypt(text, keyWord){
   keyWord = (keyWord || "").trim();
   if (!keyWord) return "⚠️ أدخل كلمة مفتاح (مثل: كنز)";
-  // نبني إزاحات من حروف المفتاح العربية فقط
   const shifts = [];
   for (const ch of keyWord){
     if (isArabicLetter(ch)) shifts.push(alphaIndex(ch));
@@ -206,7 +237,6 @@ function atbash(text){
 
 /** ===== 5) Base64 (UTF-8 safe) ===== */
 function toBase64Unicode(str){
-  // encodeURIComponent -> bytes
   const utf8 = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_,p)=>String.fromCharCode(parseInt(p,16)));
   return btoa(utf8);
 }
@@ -216,12 +246,145 @@ function fromBase64Unicode(b64){
   return decodeURIComponent(esc);
 }
 
+/** ===== HELP CONTENT ===== */
+function buildArabicNumberTable(){
+  let html = "<table><thead><tr><th>الحرف</th><th>الرقم</th></tr></thead><tbody>";
+  for (let i=0; i<ALPH.length; i++){
+    html += `<tr><td>${ALPH[i]}</td><td>${i+1}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  return html;
+}
+
+function buildAtbashTable(){
+  const n = ALPH.length;
+  let html = "<table><thead><tr><th>الأصل</th><th>المشفّر</th></tr></thead><tbody>";
+  for (let i=0; i<n; i++){
+    html += `<tr><td>${ALPH[i]}</td><td>${ALPH[(n-1)-i]}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  return html;
+}
+
+function buildCaesarMiniTable(shift){
+  const s = Number.isFinite(shift) ? shift : 2;
+  const sample = ["ا","ب","ت","ث","ج","ح","د","ر","س","ص","ع","ف","ك","ل","م","ن","ه","و","ي"];
+  let html = "<table><thead><tr><th>الأصل</th><th>بعد الإزاحة</th></tr></thead><tbody>";
+  for (const ch of sample){
+    html += `<tr><td>${ch}</td><td>${shiftArabicChar(ch, s)}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  return html;
+}
+
+function buildVigenereKeyTable(keyWord){
+  const shifts = [];
+  for (const ch of (keyWord || "")){
+    if (isArabicLetter(ch)) shifts.push({ch: normalizeArabicChar(ch), sh: alphaIndex(ch)});
+  }
+  if (!shifts.length) return "<div class='small'>أدخل كلمة مفتاح عربية ليظهر جدول الإزاحات.</div>";
+  let html = "<table><thead><tr><th>حرف المفتاح</th><th>الإزاحة</th></tr></thead><tbody>";
+  for (const it of shifts){
+    html += `<tr><td>${it.ch}</td><td>${it.sh}</td></tr>`;
+  }
+  html += "</tbody></table>";
+  return html;
+}
+
+function helpFor(mode, key){
+  const baseExampleText = "تجد الكنز في صالة البيت";
+  if (mode === "arabic_numbers"){
+    return {
+      title: "🔢 ترقيم الحروف العربية",
+      text: `
+        <p>يتم تحويل كل <b>حرف عربي</b> إلى رقم حسب ترتيبه في الأبجدية.</p>
+        <p>مثال: <code>ا = 1</code>، <code>ب = 2</code>، <code>ت = 3</code> …</p>
+        <p>نستخدم الرمز <code>|</code> للفصل بين الكلمات (بدل المسافة) لتسهيل القراءة.</p>
+      `,
+      example: `النص: ${baseExampleText}\nالناتج: ${arabicToNumbers(baseExampleText)}\n\nفك التشفير: ضع الأرقام ثم اضغط "فك التشفير"`,
+      tableTitle: "جدول الحروف → أرقام",
+      tableHTML: buildArabicNumberTable(),
+      showTable: true
+    };
+  }
+
+  if (mode === "caesar_ar"){
+    const s = parseInt(key,10);
+    const used = Number.isNaN(s) ? 2 : s;
+    return {
+      title: "🔁 تشفير قيصر العربي (إزاحة)",
+      text: `
+        <p>نحرّك كل حرف عربي للأمام بعدد ثابت (المفتاح).</p>
+        <p>إذا كان المفتاح <code>${used}</code> فهذا يعني: كل حرف يتحول للحرف الذي بعده بـ <b>${used}</b> خطوات.</p>
+        <p><b>لفك التشفير</b> نستخدم نفس المفتاح لكن بالعكس.</p>
+      `,
+      example: `النص: كنز\nالمفتاح: ${used}\nالناتج: ${caesarEncrypt("كنز", String(used))}\n\nمثال أطول:\n${baseExampleText}  →  ${caesarEncrypt(baseExampleText, String(used))}`,
+      tableTitle: "أمثلة تحويل (مختصر)",
+      tableHTML: buildCaesarMiniTable(used),
+      showTable: true
+    };
+  }
+
+  if (mode === "vigenere_ar"){
+    const kw = (key || "").trim() || "كنز";
+    return {
+      title: "🔑 Vigenère عربي (بكلمة مفتاح)",
+      text: `
+        <p>تكتب <b>كلمة مفتاح</b> (مثلاً: <code>${kw}</code>).</p>
+        <p>كل حرف في المفتاح يعطي إزاحة مختلفة، ثم تُطبَّق هذه الإزاحات بالتناوب على حروف النص.</p>
+        <p>هذا النوع ممتع في لعبة الكنز لأنه يعتمد على <b>كلمة سر</b> بدل رقم واحد.</p>
+      `,
+      example: `النص: كنز\nالمفتاح: ${kw}\nالناتج: ${vigenereEncrypt("كنز", kw)}\n\nمثال أطول:\n${baseExampleText}  →  ${vigenereEncrypt(baseExampleText, kw)}`,
+      tableTitle: "حروف المفتاح → الإزاحات",
+      tableHTML: buildVigenereKeyTable(key),
+      showTable: true
+    };
+  }
+
+  if (mode === "atbash_ar"){
+    return {
+      title: "🔄 Atbash عربي (عكس الحروف)",
+      text: `
+        <p>نقوم بعكس الأبجدية: أول حرف يصبح آخر حرف، والثاني يصبح قبل الأخير…</p>
+        <p>مثال: <code>ا ↔ ي</code>، <code>ب ↔ و</code>، <code>ت ↔ ه</code> …</p>
+        <p>ميزة هذا النوع: <b>التشفير وفك التشفير نفس الزر</b> (نفس العملية).</p>
+      `,
+      example: `النص: كنز\nالناتج: ${atbash("كنز")}\n\nمثال أطول:\n${baseExampleText}  →  ${atbash(baseExampleText)}`,
+      tableTitle: "جدول العكس (كامل)",
+      tableHTML: buildAtbashTable(),
+      showTable: true
+    };
+  }
+
+  // base64
+  return {
+    title: "📦 Base64 للنص",
+    text: `
+      <p>هذا ليس تشفير ألغاز، بل <b>ترميز</b> يجعل النص مناسبًا للنسخ والإرسال.</p>
+      <p>مفيد لو تبغى ترسل النص بشكل “شكل مختلف” بسرعة، لكنه <b>سهل فكّه</b>.</p>
+    `,
+    example: `النص: ${baseExampleText}\nالناتج: ${toBase64Unicode(baseExampleText)}\n\nفك التشفير: الصق Base64 واضغط "فك التشفير"`,
+    tableTitle: "",
+    tableHTML: "",
+    showTable: false
+  };
+}
+
 /** ===== UI wiring ===== */
 const elPlain = document.getElementById("plain");
 const elOut   = document.getElementById("out");
 const elMode  = document.getElementById("mode");
 const elKey   = document.getElementById("key");
 const elHint  = document.getElementById("modeHint");
+
+const helpPanel = document.getElementById("helpPanel");
+const toggleHelpBtn = document.getElementById("toggleHelpBtn");
+const helpTitle = document.getElementById("helpTitle");
+const helpText = document.getElementById("helpText");
+const helpExample = document.getElementById("helpExample");
+const helpTable = document.getElementById("helpTable");
+const tableBlock = document.getElementById("tableBlock");
+const tableTitle = document.getElementById("tableTitle");
 
 function updateHint(){
   const m = elMode.value;
@@ -234,8 +397,43 @@ function updateHint(){
   };
   elHint.textContent = hints[m] || "";
 }
+
+function updateHelp(){
+  const m = elMode.value;
+  const key = elKey.value;
+  const h = helpFor(m, key);
+
+  helpTitle.textContent = h.title;
+  helpText.innerHTML = h.text;
+  helpExample.textContent = h.example;
+
+  if (h.showTable){
+    tableBlock.style.display = "block";
+    tableTitle.textContent = h.tableTitle || "جدول";
+    helpTable.innerHTML = h.tableHTML;
+  } else {
+    tableBlock.style.display = "none";
+    helpTable.innerHTML = "";
+  }
+}
+
 updateHint();
-elMode.addEventListener("change", updateHint);
+updateHelp();
+
+elMode.addEventListener("change", ()=>{
+  updateHint();
+  updateHelp();
+});
+
+elKey.addEventListener("input", ()=>{
+  // عشان جدول Vigenère/قيصر يتحدث مباشرة
+  updateHelp();
+});
+
+toggleHelpBtn.addEventListener("click", ()=>{
+  const open = helpPanel.classList.toggle("open");
+  toggleHelpBtn.textContent = open ? "إخفاء الشرح" : "إظهار الشرح";
+});
 
 function encrypt(){
   const text = elPlain.value;
@@ -258,7 +456,7 @@ function decrypt(){
     if (m === "arabic_numbers") elOut.value = numbersToArabic(text);
     else if (m === "caesar_ar") elOut.value = caesarDecrypt(text, key);
     else if (m === "vigenere_ar") elOut.value = vigenereDecrypt(text, key);
-    else if (m === "atbash_ar") elOut.value = atbash(text); // نفس العملية
+    else if (m === "atbash_ar") elOut.value = atbash(text);
     else if (m === "base64") elOut.value = fromBase64Unicode(text);
   } catch(e){
     elOut.value = "⚠️ ما قدرت أفك النص. تأكد من المدخلات.";
@@ -273,7 +471,6 @@ document.getElementById("copyBtn").addEventListener("click", async ()=>{
     await navigator.clipboard.writeText(elOut.value);
     alert("تم نسخ الناتج ✅");
   }catch{
-    // fallback
     elOut.select();
     document.execCommand("copy");
     alert("تم نسخ الناتج ✅");
