@@ -3,41 +3,131 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>لعبة الكنز - تشفير النص</title>
+  <title>لعبة الكنز — تشفير / فك تشفير</title>
 
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Tahoma, Arial; margin: 24px; line-height: 1.6; }
-    .card { max-width: 980px; margin: 0 auto; padding: 18px; border: 1px solid #ddd; border-radius: 14px; }
-    h1 { margin: 0 0 12px; font-size: 22px; }
-    label { display:block; margin: 10px 0 6px; font-weight: 700; }
-    textarea, input, select { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #ccc; font-size: 15px; }
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Tahoma, Arial;
+      margin: 24px;
+      line-height: 1.65;
+      background: #fff;
+      color:#111;
+    }
+    .card{
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      background: #fff;
+    }
+    h1{ margin:0 0 12px; font-size: 22px; }
+    label{ display:block; margin: 10px 0 6px; font-weight: 800; }
 
-    /* اتجاه الإخراج */
-    #out.ltr {
+    textarea, input, select{
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+      background:#fff;
+    }
+    textarea{ min-height: 110px; resize: vertical; }
+
+    .row{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items:start;
+    }
+    @media (max-width: 800px){ .row{grid-template-columns: 1fr;} }
+
+    .btns{
+      display:flex;
+      gap:10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      align-items:center;
+    }
+    button{
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 900;
+    }
+    button.primary{ background:#111; color:#fff; }
+    button.secondary{ background:#eee; }
+    button.warn{ background:#ffe9e9; }
+
+    .hint{ color:#555; font-size: 13px; margin-top: 6px; }
+    .small{ font-size: 12px; color:#666; }
+    .hr{ height:1px; background:#eee; margin:16px 0; }
+
+    /* ========= حل مشاكل RTL/BiDi للأرقام =========
+       - نعرض الناتج الرقمي داخل textarea بــ LTR (حتى لا تنقلب الأرقام)
+       - لكن نجعل المحاذاة يمين حتى يظهر بشكل عربي
+       - ونجبر ترتيب الرموز/الشرطات/المسافات بعدم قلبه عبر bidi-override
+    */
+    #out.ltr{
       direction: ltr;
-      unicode-bidi: isolate; /* ⭐ التعديل المهم */
+      unicode-bidi: bidi-override;
       text-align: right;
     }
-    #out.rtl {
+    #out.rtl{
       direction: rtl;
       unicode-bidi: isolate;
       text-align: right;
     }
 
-    textarea { min-height: 110px; resize: vertical; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .btns { display:flex; gap:10px; flex-wrap: wrap; margin-top: 12px; }
-    button { padding: 10px 14px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 800; }
-    button.primary { background: #111; color: #fff; }
-    button.secondary { background: #eee; }
-    .hint { color:#555; font-size: 13px; margin-top: 6px; }
-    .small { font-size: 12px; color:#666; }
-    .hr { height:1px; background:#eee; margin:16px 0; }
+    .toggle{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      gap:10px;
+      margin-top: 8px;
+    }
+    .panel{
+      border:1px dashed #ddd;
+      border-radius: 12px;
+      padding: 14px;
+      background:#fafafa;
+      display:none;
+      margin-top: 10px;
+    }
+    .panel.open{ display:block; }
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background:#f2f2f2;
+      padding:10px;
+      border-radius:10px;
+      white-space: pre-wrap;
+    }
 
-    .boxes { display:flex; gap:10px; flex-wrap: wrap; margin-top: 8px; }
-    .boxword { border:1px solid #bbb; border-radius: 10px; padding:10px 12px; background:#fff; font-weight:800; }
+    .muted{ color:#777; font-weight:700; font-size: 12px; margin-top:10px; }
 
-    @media (max-width: 800px){ .row{grid-template-columns: 1fr;} }
+    .boxes{
+      display:flex;
+      gap:10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      direction: rtl;
+    }
+    .boxword{
+      border:1px solid #bbb;
+      border-radius: 10px;
+      padding:10px 12px;
+      background:#fff;
+      font-weight:900;
+      letter-spacing: .3px;
+      /* داخل الصندوق نثبت الأرقام (لا تنقلب) */
+      direction: ltr;
+      unicode-bidi: bidi-override;
+      text-align: right;
+    }
+
+    code{ background:#f6f6f6; padding:2px 6px; border-radius: 6px; }
   </style>
 </head>
 
@@ -46,119 +136,634 @@
   <h1>🔐 لعبة الكنز — تشفير / فك تشفير النص</h1>
 
   <label>النص الأصلي</label>
-  <textarea id="plain"></textarea>
+  <textarea id="plain" placeholder="مثال: تجد الكنز في صالة البيت"></textarea>
 
-  <label>نوع الشفرة</label>
-  <select id="mode">
-    <option value="arabic_numbers">1) ترقيم الحروف العربية</option>
-    <option value="polybius_ar">2) Polybius عربي</option>
-    <option value="keyed_numbers">3) تشفير بالأرقام مع مفتاح</option>
-  </select>
+  <div class="row">
+    <div>
+      <label>نوع الشفرة</label>
+      <select id="mode">
+        <option value="arabic_numbers">1) ترقيم الحروف العربية (أرقام)</option>
+        <option value="polybius_ar">2) Polybius عربي (أرقام)</option>
+        <option value="keyed_numbers">3) تشفير رقمي بالمفتاح (أرقام)</option>
+        <option value="caesar_ar">4) قيصر عربي (حروف)</option>
+        <option value="vigenere_ar">5) Vigenère عربي (حروف)</option>
+        <option value="atbash_ar">6) Atbash عربي (حروف)</option>
+        <option value="base64">7) Base64 للنص</option>
+      </select>
+      <div class="hint" id="modeHint"></div>
+    </div>
+
+    <div>
+      <label>المفتاح (اختياري حسب الشفرة)</label>
+      <input id="key" placeholder="قيصر: رقم مثل 3 — Vigenère: كلمة مثل كنز" />
+      <div class="small">ملاحظة: “التشفير الرقمي بالمفتاح” له إعداداته تحت.</div>
+    </div>
+  </div>
+
+  <!-- إعدادات التشفير الرقمي بالمفتاح -->
+  <div id="keyedControls" style="margin-top:12px; display:none;">
+    <div class="hr"></div>
+    <label>إعدادات “التشفير الرقمي بالمفتاح”</label>
+
+    <label>نمط المفتاح</label>
+    <select id="mapStyle">
+      <option value="seq">تسلسلي: ا=01، ب=02…</option>
+      <option value="rev">معكوس: ا=28، ب=27…</option>
+      <option value="interleave">متناوب: ا=01، ب=15، ت=02، ث=16…</option>
+    </select>
+
+    <div class="row" style="margin-top:10px;">
+      <div>
+        <label>عدد أزواج “التلميح”</label>
+        <input id="hintCount" type="number" min="2" max="28" value="6" />
+        <div class="small">مثلاً 6 → يطبع 6 أزواج فقط: ا=01، ب=15…</div>
+      </div>
+      <div>
+        <label>أزرار سريعة</label>
+        <div class="btns" style="margin-top:0;">
+          <button class="secondary" id="genHintBtn">توليد تلميح</button>
+          <button class="secondary" id="genFullKeyBtn">توليد المفتاح كامل (للمنظّم)</button>
+        </div>
+      </div>
+    </div>
+
+    <label>نص التلميح (تقدر تعدله يدويًا)</label>
+    <textarea id="hintText" placeholder="مثال: ا=01، ب=15، ت=02، ث=16..."></textarea>
+
+    <label>المفتاح كامل (اختياري – للمنظّم فقط)</label>
+    <textarea id="fullKeyText" placeholder="سيظهر هنا المفتاح كامل إذا ضغطت زر التوليد"></textarea>
+  </div>
 
   <div class="btns">
     <button class="primary" id="encryptBtn">شفّر</button>
-    <button class="secondary" id="decryptBtn">فك</button>
+    <button class="secondary" id="decryptBtn">فك التشفير</button>
+    <button class="secondary" id="copyBtn">نسخ الناتج</button>
+    <button class="secondary" id="swapBtn">بدّل (الناتج ← النص)</button>
+    <button class="secondary" id="clearBtn">مسح</button>
+    <button class="secondary" id="printBtn">🖨️ طباعة بطاقة</button>
+  </div>
+
+  <div style="margin-top:10px;">
+    <label style="display:flex; gap:10px; align-items:center; font-weight:800;">
+      <input type="checkbox" id="printFullKey" />
+      اطبع المفتاح كامل (للمنظّم فقط / للحالات الصعبة)
+    </label>
+
+    <label style="display:flex; gap:10px; align-items:center; font-weight:800;">
+      <input type="checkbox" id="printBoxes" checked />
+      اطبع الكلمات داخل صناديق (بدل سطر واحد)
+    </label>
+    <div class="small">الكلمات تُفصل بـ <code>|</code>. الصناديق تحافظ على ترتيب الأرقام.</div>
   </div>
 
   <label>الناتج</label>
-  <textarea id="out"></textarea>
+  <textarea id="out" placeholder="سيظهر هنا النص المشفّر أو المفكوك"></textarea>
 
-  <div class="boxes" id="previewBoxes"></div>
+  <div class="muted" id="previewLabel" style="display:none;">معاينة (كلمات داخل صناديق):</div>
+  <div class="boxes" id="previewBoxes" style="display:none;"></div>
+
+  <div class="hr"></div>
+
+  <div class="toggle">
+    <div style="font-weight:900;">📘 شرح التشفير (للاستخدام/التجربة)</div>
+    <button class="secondary" id="toggleHelpBtn">إظهار الشرح</button>
+  </div>
+  <div class="panel" id="helpPanel">
+    <div class="mono" id="helpText">اختَر نوع الشفرة لتظهر ملاحظات بسيطة هنا.</div>
+  </div>
 </div>
 
 <script>
-/* ===== ثوابت ===== */
-const LRM = "\u200E"; // ⭐ علامة اتجاه مخفية
+/* ========= ثوابت + تطبيع ========= */
 const ALPH = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي";
+const normMap = new Map([["أ","ا"],["إ","ا"],["آ","ا"],["ٱ","ا"],["ة","ه"],["ى","ي"]]);
+const norm = ch => normMap.get(ch) ?? ch;
 
-/* ===== أدوات ===== */
-const isAr = c => ALPH.includes(c);
-const idxOf = c => ALPH.indexOf(c);
+const isAr = ch => ALPH.includes(norm(ch));
+const idxOf = ch => ALPH.indexOf(norm(ch));
 
-/* ===== ترقيم الحروف ===== */
+/* ========= أدوات ========= */
+function pad2(n){ return String(n).padStart(2,"0"); }
+function safeText(s){ return (s ?? "").toString(); }
+
+/* ========= 1) ترقيم الحروف العربية (أرقام) =========
+   إخراج: أرقام مفصولة بمسافة — الكلمات تفصل بـ |
+   مثال: تجد الكنز -> 03 05 08 | 01 23 22 25 11
+*/
 function arabicToNumbers(text){
-  const parts=[];
-  for (const ch of text){
-    if (isAr(ch)) parts.push(String(idxOf(ch)+1));
-    else if (ch===" ") parts.push("|");
-  }
-  return LRM + parts.join("-");
-}
-function numbersToArabic(text){
-  return text.replace(LRM,"").split("-").map(t=>{
-    if(t==="|") return " ";
-    const n=parseInt(t,10);
-    return ALPH[n-1]||"";
-  }).join("");
+  const words = safeText(text).trim().split(/\s+/).filter(Boolean);
+  const encWords = words.map(w=>{
+    const nums=[];
+    for(const ch0 of w){
+      const ch = norm(ch0);
+      if(ALPH.includes(ch)) nums.push(pad2(ALPH.indexOf(ch)+1));
+      else nums.push(ch0); // رموز كما هي
+    }
+    return nums.join(" ");
+  });
+  return encWords.join(" | ");
 }
 
-/* ===== Polybius ===== */
-const COLS=5;
-function polybiusEncode(text){
-  return LRM + text.split(" ").map(w=>{
-    let s="";
-    for(const c of w){
-      const i=idxOf(c);
-      if(i>=0){
-        s+= (Math.floor(i/COLS)+1)+""+((i%COLS)+1)+" ";
+function numbersToArabic(text){
+  // يقبل " | " أو "|" ويفهم أرقام مفصولة بمسافات (وأيضًا يقبل الشكل القديم بالشرطات)
+  let t = safeText(text).trim();
+  // دعم الشكل القديم: 3-5-8-|1-23... -> نحوله لمسافات
+  t = t.replaceAll("-", " ");
+  // توحيد الفواصل
+  const words = t.split("|").map(s=>s.trim()).filter(Boolean);
+  const outWords = words.map(w=>{
+    const toks = w.split(/\s+/).filter(Boolean);
+    let out="";
+    for(const tok of toks){
+      if(/^\d+$/.test(tok)){
+        const n = parseInt(tok,10);
+        if(n>=1 && n<=ALPH.length) out += ALPH[n-1];
+      }else{
+        out += tok; // أي شيء غير رقم
       }
     }
-    return s.trim();
-  }).join("|");
+    return out;
+  });
+  return outWords.join(" ");
 }
+
+/* ========= 2) Polybius عربي (أرقام) =========
+   6x5 (POLY_COLS=5): كل حرف = رقمين (صف+عمود) مع مسافة بين الأزواج
+   كلمات تفصل بـ |
+   مثال: تجد -> 13 15 23
+*/
+const POLY_COLS = 5;
+function polybiusEncode(text){
+  const words = safeText(text).trim().split(/\s+/).filter(Boolean);
+  const encWords = words.map(w=>{
+    const pairs=[];
+    for(const ch0 of w){
+      const ch = norm(ch0);
+      const i = ALPH.indexOf(ch);
+      if(i === -1) pairs.push(`_${ch0}_`);
+      else{
+        const r = Math.floor(i / POLY_COLS) + 1;
+        const c = (i % POLY_COLS) + 1;
+        pairs.push(`${r}${c}`);
+      }
+    }
+    return pairs.join(" ");
+  });
+  return encWords.join(" | ");
+}
+
 function polybiusDecode(text){
-  return text.replace(LRM,"").split("|").map(w=>{
-    return w.trim().split(" ").map(p=>{
-      const r=parseInt(p[0])-1;
-      return ALPH[r*COLS+(parseInt(p[1])-1)]||"";
-    }).join("");
-  }).join(" ");
+  let t = safeText(text).trim();
+  const words = t.split("|").map(s=>s.trim()).filter(Boolean);
+  const outWords = words.map(w=>{
+    const toks = w.split(/\s+/).filter(Boolean);
+    let out="";
+    for(const tok of toks){
+      if(tok.startsWith("_") && tok.endsWith("_") && tok.length>=3){
+        out += tok.slice(1,-1);
+        continue;
+      }
+      if(/^\d\d$/.test(tok)){
+        const r = parseInt(tok[0],10);
+        const c = parseInt(tok[1],10);
+        const k = (r-1)*POLY_COLS + (c-1);
+        out += (k>=0 && k<ALPH.length) ? ALPH[k] : "�";
+      }else{
+        // fallback: لو أحد كتب 131523 بدون مسافات، نفكها زوج زوج
+        if(/^\d+$/.test(tok) && tok.length%2===0){
+          for(let i=0;i<tok.length;i+=2){
+            const r = parseInt(tok[i],10);
+            const c = parseInt(tok[i+1],10);
+            const k = (r-1)*POLY_COLS + (c-1);
+            out += (k>=0 && k<ALPH.length) ? ALPH[k] : "�";
+          }
+        }else{
+          out += tok;
+        }
+      }
+    }
+    return out;
+  });
+  return outWords.join(" ");
 }
 
-/* ===== تشفير بمفتاح ===== */
-function keyedEncode(text){
-  return LRM + text.split(" ").map(w=>{
-    return [...w].map(c=>{
-      const i=idxOf(c);
-      return i>=0 ? String(i+1).padStart(2,"0") : "";
-    }).join(" ");
-  }).join("|");
+/* ========= 3) تشفير رقمي بالمفتاح (أرقام) =========
+   - 3 أنماط: seq / rev / interleave
+   - كل حرف = رقمين دائمًا (01..28) + مسافة بين الحروف
+   - كلمات تفصل بـ |
+*/
+function makeOrder(style){
+  const base = ALPH.split("");
+  if(style === "rev") return [...base].reverse();
+  if(style === "interleave"){
+    const half = Math.ceil(base.length/2);
+    const A = base.slice(0,half);
+    const B = base.slice(half);
+    const out=[];
+    for(let i=0;i<half;i++){
+      if(A[i]) out.push(A[i]);
+      if(B[i]) out.push(B[i]);
+    }
+    return out; // 1,15,2,16...
+  }
+  return base; // seq
 }
-function keyedDecode(text){
-  return text.replace(LRM,"").split("|").map(w=>{
-    return w.trim().split(" ").map(n=>{
-      return ALPH[parseInt(n,10)-1]||"";
-    }).join("");
-  }).join(" ");
+function makeMapping(style){
+  const order = makeOrder(style);
+  const map = new Map();
+  const inv = new Map();
+  for(let i=0;i<order.length;i++){
+    const num=i+1;
+    map.set(order[i], num);
+    inv.set(num, order[i]);
+  }
+  return {order,map,inv};
+}
+function keyedEncode(text, style){
+  const {map} = makeMapping(style);
+  const words = safeText(text).trim().split(/\s+/).filter(Boolean);
+  const encWords = words.map(w=>{
+    const toks=[];
+    for(const ch0 of w){
+      const ch = norm(ch0);
+      if(ALPH.includes(ch)) toks.push(pad2(map.get(ch)));
+      else toks.push(`_${ch0}_`);
+    }
+    return toks.join(" ");
+  });
+  return encWords.join(" | ");
+}
+function keyedDecode(text, style){
+  const {inv} = makeMapping(style);
+  const words = safeText(text).trim().split("|").map(s=>s.trim()).filter(Boolean);
+  const outWords = words.map(w=>{
+    const toks = w.split(/\s+/).filter(Boolean);
+    let out="";
+    for(const tok of toks){
+      if(tok.startsWith("_") && tok.endsWith("_") && tok.length>=3){
+        out += tok.slice(1,-1);
+        continue;
+      }
+      if(/^\d+$/.test(tok)){
+        const n = parseInt(tok,10);
+        out += inv.get(n) || "�";
+      }else{
+        out += tok;
+      }
+    }
+    return out;
+  });
+  return outWords.join(" ");
+}
+function buildHint(style, count){
+  const {order,map}=makeMapping(style);
+  const n=Math.max(2, Math.min(28, parseInt(count,10)||6));
+  return order.slice(0,n).map(ch=>`${ch}=${pad2(map.get(ch))}`).join("، ");
+}
+function buildFullKey(style){
+  const {order,map}=makeMapping(style);
+  return order.map(ch=>`${ch}=${pad2(map.get(ch))}`).join("، ");
 }
 
-/* ===== التحكم ===== */
-const elOut=document.getElementById("out");
-const elMode=document.getElementById("mode");
-
-function updateDir(){
-  const numeric=["arabic_numbers","polybius_ar","keyed_numbers"];
-  elOut.className = numeric.includes(elMode.value) ? "ltr" : "rtl";
+/* ========= 4) قيصر عربي (حروف) ========= */
+function shiftAr(ch, s){
+  const c = norm(ch);
+  const i = ALPH.indexOf(c);
+  if(i===-1) return ch;
+  const n = ALPH.length;
+  return ALPH[(i + ((s%n)+n)) % n];
+}
+function caesarEncrypt(text, k){
+  const s = parseInt(k,10);
+  if(Number.isNaN(s)) return "⚠️ أدخل رقمًا (مثل 3)";
+  let out="";
+  for(const ch of safeText(text)) out += shiftAr(ch, s);
+  return out;
+}
+function caesarDecrypt(text, k){
+  const s = parseInt(k,10);
+  if(Number.isNaN(s)) return "⚠️ أدخل رقمًا (مثل 3)";
+  let out="";
+  for(const ch of safeText(text)) out += shiftAr(ch, -s);
+  return out;
 }
 
+/* ========= 5) Vigenère عربي (حروف) ========= */
+function vigenereEncrypt(text, keyWord){
+  keyWord = safeText(keyWord).trim();
+  if(!keyWord) return "⚠️ أدخل كلمة مفتاح";
+  const shifts=[];
+  for(const ch of keyWord) if(isAr(ch)) shifts.push(idxOf(ch));
+  if(!shifts.length) return "⚠️ المفتاح لازم عربي";
+  let out="", ki=0;
+  for(const ch of safeText(text)){
+    if(isAr(ch)){
+      out += shiftAr(ch, shifts[ki % shifts.length]);
+      ki++;
+    }else out += ch;
+  }
+  return out;
+}
+function vigenereDecrypt(text, keyWord){
+  keyWord = safeText(keyWord).trim();
+  if(!keyWord) return "⚠️ أدخل كلمة مفتاح";
+  const shifts=[];
+  for(const ch of keyWord) if(isAr(ch)) shifts.push(idxOf(ch));
+  if(!shifts.length) return "⚠️ المفتاح لازم عربي";
+  let out="", ki=0;
+  for(const ch of safeText(text)){
+    if(isAr(ch)){
+      out += shiftAr(ch, -shifts[ki % shifts.length]);
+      ki++;
+    }else out += ch;
+  }
+  return out;
+}
+
+/* ========= 6) Atbash عربي (حروف) ========= */
+function atbash(text){
+  const n = ALPH.length;
+  let out="";
+  for(const ch0 of safeText(text)){
+    const ch = norm(ch0);
+    const i = ALPH.indexOf(ch);
+    out += (i===-1) ? ch0 : ALPH[(n-1)-i];
+  }
+  return out;
+}
+
+/* ========= 7) Base64 ========= */
+function toBase64Unicode(str){
+  const utf8 = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_,p)=>String.fromCharCode(parseInt(p,16)));
+  return btoa(utf8);
+}
+function fromBase64Unicode(b64){
+  const bytes = atob(b64);
+  const esc = Array.from(bytes, c=>"%" + c.charCodeAt(0).toString(16).padStart(2,"0")).join("");
+  return decodeURIComponent(esc);
+}
+
+/* ========= UI ========= */
+const elPlain = document.getElementById("plain");
+const elOut   = document.getElementById("out");
+const elMode  = document.getElementById("mode");
+const elKey   = document.getElementById("key");
+const elHint  = document.getElementById("modeHint");
+
+const keyedControls = document.getElementById("keyedControls");
+const previewLabel  = document.getElementById("previewLabel");
+const previewBoxes  = document.getElementById("previewBoxes");
+
+const helpPanel = document.getElementById("helpPanel");
+const helpText  = document.getElementById("helpText");
+const toggleHelpBtn = document.getElementById("toggleHelpBtn");
+
+function isNumericMode(m){
+  return ["arabic_numbers","polybius_ar","keyed_numbers"].includes(m);
+}
+function updateOutDirection(){
+  elOut.classList.remove("ltr","rtl");
+  elOut.classList.add(isNumericMode(elMode.value) ? "ltr" : "rtl");
+}
+function updateKeyedVisibility(){
+  keyedControls.style.display = (elMode.value === "keyed_numbers") ? "block" : "none";
+}
+function updateHint(){
+  const m = elMode.value;
+  const hints = {
+    arabic_numbers: "كل حرف → رقمين (01..28) وبين الحروف مسافة، وبين الكلمات |",
+    polybius_ar: "كل حرف → رقمين (صف+عمود) وبين الأزواج مسافة، وبين الكلمات |",
+    keyed_numbers: "كل حرف → رقمين حسب نمط مفتاح تختاره، وبين الكلمات | (مع تلميح)",
+    caesar_ar: "حروف: إزاحة ثابتة. المفتاح رقم",
+    vigenere_ar: "حروف: المفتاح كلمة عربية",
+    atbash_ar: "حروف: عكس الأبجدية (بدون مفتاح)",
+    base64: "ترميز للنص للنسخ/الإرسال (ليس لغز قوي)"
+  };
+  elHint.textContent = hints[m] || "";
+}
+function updateHelp(){
+  const m = elMode.value;
+  if(m==="arabic_numbers"){
+    helpText.textContent = "ترقيم عربي:\n- ا=01، ب=02 …\n- داخل الكلمة: أرقام مفصولة بمسافة\n- بين الكلمات: |";
+  }else if(m==="polybius_ar"){
+    helpText.textContent = "Polybius عربي:\n- كل حرف = رقمين (صف+عمود)\n- داخل الكلمة: الأزواج مفصولة بمسافة\n- بين الكلمات: |";
+  }else if(m==="keyed_numbers"){
+    helpText.textContent = "تشفير رقمي بالمفتاح:\n- تختار نمط (تسلسلي/معكوس/متناوب)\n- تعطي المتسابق “التلميح” فقط (مثلاً: ا=01، ب=15…)\n- داخل الكلمة: أرقام مفصولة بمسافة\n- بين الكلمات: |";
+  }else if(m==="caesar_ar"){
+    helpText.textContent = "قيصر:\n- يحرك الحروف بعدد ثابت\n- المفتاح رقم (مثلاً 3)";
+  }else if(m==="vigenere_ar"){
+    helpText.textContent = "Vigenère:\n- يستخدم كلمة مفتاح عربية\n- يعطي إزاحة مختلفة لكل حرف";
+  }else if(m==="atbash_ar"){
+    helpText.textContent = "Atbash:\n- يعكس ترتيب الحروف داخل الأبجدية";
+  }else{
+    helpText.textContent = "Base64:\n- ترميز نصي للنسخ/الإرسال\n- لا يصلح كلغز قوي لكنه مفيد أحيانًا.";
+  }
+}
+function renderBoxesPreview(){
+  const v = safeText(elOut.value).trim();
+  // نعرض المعاينة فقط لو فيه فاصل كلمات واضح
+  if(!v.includes("|")){
+    previewLabel.style.display="none";
+    previewBoxes.style.display="none";
+    previewBoxes.innerHTML="";
+    return;
+  }
+  const words = v.split("|").map(s=>s.trim()).filter(Boolean);
+  previewBoxes.innerHTML = words.map(w=>`<div class="boxword">${escapeHtml(w)}</div>`).join("");
+  previewLabel.style.display="block";
+  previewBoxes.style.display="flex";
+}
+function escapeHtml(s){
+  return safeText(s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+/* ========= تشغيل: تشفير / فك ========= */
 function encrypt(){
-  const t=document.getElementById("plain").value;
-  if(elMode.value==="arabic_numbers") elOut.value=arabicToNumbers(t);
-  if(elMode.value==="polybius_ar") elOut.value=polybiusEncode(t);
-  if(elMode.value==="keyed_numbers") elOut.value=keyedEncode(t);
-  updateDir();
-}
-function decrypt(){
-  const t=document.getElementById("plain").value;
-  if(elMode.value==="arabic_numbers") elOut.value=numbersToArabic(t);
-  if(elMode.value==="polybius_ar") elOut.value=polybiusDecode(t);
-  if(elMode.value==="keyed_numbers") elOut.value=keyedDecode(t);
-  updateDir();
+  const text = elPlain.value;
+  const m = elMode.value;
+
+  if(m==="arabic_numbers") elOut.value = arabicToNumbers(text);
+  else if(m==="polybius_ar") elOut.value = polybiusEncode(text);
+  else if(m==="keyed_numbers"){
+    const style = document.getElementById("mapStyle").value;
+    elOut.value = keyedEncode(text, style);
+  }
+  else if(m==="caesar_ar") elOut.value = caesarEncrypt(text, elKey.value);
+  else if(m==="vigenere_ar") elOut.value = vigenereEncrypt(text, elKey.value);
+  else if(m==="atbash_ar") elOut.value = atbash(text);
+  else if(m==="base64") elOut.value = toBase64Unicode(text);
+
+  updateOutDirection();
+  renderBoxesPreview();
 }
 
-document.getElementById("encryptBtn").onclick=encrypt;
-document.getElementById("decryptBtn").onclick=decrypt;
-updateDir();
+function decrypt(){
+  const text = elPlain.value;
+  const m = elMode.value;
+
+  try{
+    if(m==="arabic_numbers") elOut.value = numbersToArabic(text);
+    else if(m==="polybius_ar") elOut.value = polybiusDecode(text);
+    else if(m==="keyed_numbers"){
+      const style = document.getElementById("mapStyle").value;
+      elOut.value = keyedDecode(text, style);
+    }
+    else if(m==="caesar_ar") elOut.value = caesarDecrypt(text, elKey.value);
+    else if(m==="vigenere_ar") elOut.value = vigenereDecrypt(text, elKey.value);
+    else if(m==="atbash_ar") elOut.value = atbash(text);
+    else if(m==="base64") elOut.value = fromBase64Unicode(text);
+  }catch(e){
+    elOut.value = "⚠️ خطأ في المدخلات";
+  }
+
+  updateOutDirection();
+  renderBoxesPreview();
+}
+
+/* ========= نسخ/تبديل/مسح ========= */
+async function copyOut(){
+  const v = elOut.value;
+  try{
+    await navigator.clipboard.writeText(v);
+    alert("تم النسخ ✅");
+  }catch{
+    elOut.select();
+    document.execCommand("copy");
+    alert("تم النسخ ✅");
+  }
+}
+function swapOut(){
+  elPlain.value = elOut.value;
+  elOut.value = "";
+  updateOutDirection();
+  renderBoxesPreview();
+}
+function clearAll(){
+  elPlain.value = "";
+  elOut.value = "";
+  elKey.value = "";
+  const ht=document.getElementById("hintText"); if(ht) ht.value="";
+  const fk=document.getElementById("fullKeyText"); if(fk) fk.value="";
+  updateOutDirection();
+  renderBoxesPreview();
+}
+
+/* ========= توليد تلميح/مفتاح كامل ========= */
+function genHint(){
+  const style=document.getElementById("mapStyle").value;
+  const n=document.getElementById("hintCount").value;
+  document.getElementById("hintText").value = buildHint(style, n);
+}
+function genFull(){
+  const style=document.getElementById("mapStyle").value;
+  document.getElementById("fullKeyText").value = buildFullKey(style);
+}
+
+/* ========= طباعة بطاقة ========= */
+function printCard(){
+  const cipher = safeText(elOut.value).trim();
+  if(!cipher){
+    alert("شفّر النص أولاً ثم اطبع.");
+    return;
+  }
+
+  const hint = safeText(document.getElementById("hintText")?.value).trim();
+  const printFull = document.getElementById("printFullKey").checked;
+  const printBoxes = document.getElementById("printBoxes").checked;
+
+  let fullKey = "";
+  if(elMode.value==="keyed_numbers" && printFull){
+    const style=document.getElementById("mapStyle").value;
+    fullKey = buildFullKey(style);
+  }
+
+  const numeric = isNumericMode(elMode.value);
+
+  let cipherHTML="";
+  if(printBoxes && cipher.includes("|")){
+    const parts = cipher.split("|").map(s=>s.trim()).filter(Boolean);
+    const boxes = parts.map(w=>{
+      // ⭐ هنا الحل النهائي: bidi-override داخل كل صندوق (لمنع انقلاب 3 5 8)
+      return `<div style="direction:ltr;unicode-bidi:bidi-override;text-align:right;border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:900;margin:4px;">
+        ${escapeHtml(w)}
+      </div>`;
+    }).join("");
+    cipherHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;direction:rtl;align-items:flex-start;">${boxes}</div>`;
+  }else{
+    if(numeric){
+      cipherHTML = `<div style="direction:rtl;">
+        <div style="direction:ltr;unicode-bidi:bidi-override;text-align:right;border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">
+          ${escapeHtml(cipher)}
+        </div>
+      </div>`;
+    }else{
+      cipherHTML = `<div style="direction:rtl;">
+        <div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;text-align:right;">
+          ${escapeHtml(cipher)}
+        </div>
+      </div>`;
+    }
+  }
+
+  const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>بطاقة لغز</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Tahoma,Arial;margin:24px;line-height:1.7;}
+    .box{border:2px solid #111;border-radius:14px;padding:16px;max-width:900px;}
+    .hint{margin-top:12px;font-size:14px;}
+    .small{color:#666;font-size:12px;margin-top:10px;}
+    @media print{body{margin:0}.box{border:0;border-radius:0}}
+  </style></head><body>
+  <div class="box">
+    <h2 style="margin:0 0 10px;">🗝️ بطاقة لغز — لعبة الكنز</h2>
+    ${cipherHTML}
+    <div class="hint"><b>المفتاح / التلميح:</b> ${hint ? escapeHtml(hint) : "(اكتب التلميح من المنظّم)"}</div>
+    ${fullKey ? `<div class="small"><b>المفتاح الكامل (للمنظّم):</b><br>${escapeHtml(fullKey)}</div>` : ""}
+  </div>
+  </body></html>`;
+
+  const w = window.open("","_blank");
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(), 200);
+}
+
+/* ========= ربط الأزرار ========= */
+document.getElementById("encryptBtn").addEventListener("click", encrypt);
+document.getElementById("decryptBtn").addEventListener("click", decrypt);
+document.getElementById("copyBtn").addEventListener("click", copyOut);
+document.getElementById("swapBtn").addEventListener("click", swapOut);
+document.getElementById("clearBtn").addEventListener("click", clearAll);
+document.getElementById("printBtn").addEventListener("click", printCard);
+
+document.getElementById("genHintBtn").addEventListener("click", genHint);
+document.getElementById("genFullKeyBtn").addEventListener("click", genFull);
+
+toggleHelpBtn.addEventListener("click", ()=>{
+  helpPanel.classList.toggle("open");
+  toggleHelpBtn.textContent = helpPanel.classList.contains("open") ? "إخفاء الشرح" : "إظهار الشرح";
+});
+
+elMode.addEventListener("change", ()=>{
+  updateHint();
+  updateKeyedVisibility();
+  updateHelp();
+  updateOutDirection();
+  renderBoxesPreview();
+});
+
+/* ========= بدء الصفحة ========= */
+updateHint();
+updateKeyedVisibility();
+updateHelp();
+updateOutDirection();
+renderBoxesPreview();
 </script>
+
 </body>
 </html>
