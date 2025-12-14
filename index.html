@@ -23,12 +23,7 @@
     .toggle { display:flex; align-items:center; justify-content: space-between; gap:10px; }
     .panel { border:1px dashed #ddd; border-radius: 12px; padding: 14px; background:#fafafa; display:none; margin-top: 10px; }
     .panel.open { display:block; }
-    .panel h2 { margin: 0 0 10px; font-size: 16px; }
-    .panel h3 { margin: 14px 0 6px; font-size: 14px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#f2f2f2; padding:8px; border-radius:10px; white-space: pre-wrap; }
-    table { width:100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border:1px solid #ddd; padding: 8px; text-align:center; }
-    th { background:#f3f3f3; }
 
     .boxes { display:flex; gap:10px; flex-wrap: wrap; margin-top: 8px; }
     .boxword { border:1px solid #bbb; border-radius: 10px; padding:10px 12px; background:#fff; font-weight:800; letter-spacing: 0.5px; }
@@ -62,41 +57,36 @@
 
       <div>
         <label>المفتاح (اختياري حسب الشفرة)</label>
-        <input id="key" placeholder="مثال: 3 أو كلمة مثل: كنز" />
-        <div class="small">قيصر: رقم — Vigenère: كلمة عربية — الباقي لا يحتاج (تشفير الأرقام مع مفتاح له إعداداته تحت)</div>
+        <input id="key" placeholder="قيصر: رقم مثل 3 — Vigenère: كلمة مثل كنز" />
+        <div class="small">ملاحظة: “تشفير بالأرقام مع مفتاح” له إعداداته تحت.</div>
       </div>
     </div>
 
     <!-- إعدادات تشفير الأرقام مع مفتاح -->
     <div id="keyedControls" style="margin-top:12px; display:none;">
       <div class="hr"></div>
-      <label>إعدادات “تشفير بالأرقام مع مفتاح”</label>
+      <label>إعدادات تشفير الأرقام مع مفتاح</label>
 
       <label>نمط المفتاح</label>
       <select id="mapStyle">
         <option value="seq">تسلسلي: ا=1، ب=2…</option>
         <option value="rev">معكوس: ا=28، ب=27…</option>
         <option value="interleave">متناوب: ا=1، ب=15، ت=2، ث=16…</option>
-        <option value="odd_even">قفزة حرف: ا=1 ثم ت=2 ثم ج=3…</option>
-        <option value="seeded">عشوائي ببذرة (Seed)</option>
       </select>
 
       <div class="row" style="margin-top:10px;">
         <div>
-          <label>البذرة (للنوع العشوائي فقط)</label>
-          <input id="seed" placeholder="مثال: 20251214 أو أي رقم" />
-          <div class="small">إذا كتبت نفس البذرة، يطلع نفس المفتاح دائمًا.</div>
-        </div>
-        <div>
           <label>عدد أزواج “التلميح” للطباعة</label>
           <input id="hintCount" type="number" min="2" max="28" value="6" />
-          <div class="small">مثلاً 6 → يطبع 6 أزواج فقط مثل: ا=1، ب=15…</div>
+          <div class="small">مثلاً 6 → يطبع 6 أزواج فقط: ا=1، ب=15…</div>
         </div>
-      </div>
-
-      <div class="btns">
-        <button class="secondary" id="genHintBtn">توليد تلميح</button>
-        <button class="secondary" id="genFullKeyBtn">توليد المفتاح كامل (للمنظّم)</button>
+        <div>
+          <label>زر تجهيز التلميح</label>
+          <div class="btns" style="margin-top:0;">
+            <button class="secondary" id="genHintBtn">توليد تلميح</button>
+            <button class="secondary" id="genFullKeyBtn">توليد المفتاح كامل (للمنظّم)</button>
+          </div>
+        </div>
       </div>
 
       <label>نص التلميح (تقدر تعدله يدويًا)</label>
@@ -141,109 +131,400 @@
       <button class="secondary" id="toggleHelpBtn">إظهار الشرح</button>
     </div>
     <div class="panel" id="helpPanel">
-      <h2 id="helpTitle">شرح</h2>
-      <div id="helpText"></div>
-      <div id="exampleBlock" style="margin-top:10px;">
-        <h3>مثال سريع</h3>
-        <div class="mono" id="helpExample"></div>
-      </div>
-      <div id="tableBlock" style="margin-top:10px;">
-        <h3 id="tableTitle">جدول</h3>
-        <div id="helpTable"></div>
-      </div>
-      <p class="small" style="margin-top:10px;">✅ أثناء اللعبة استخدم “التلميح” اللي تكتبه أنت.</p>
+      <div class="mono" id="helpText">اختَر نوع الشفرة لتظهر ملاحظات بسيطة هنا.</div>
     </div>
   </div>
 
 <script>
-/** ===== Alphabet handling (Arabic) ===== */
+/** ===== Arabic alphabet ===== */
 const ALPH = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي";
-const normMap = new Map([
-  ["أ","ا"],["إ","ا"],["آ","ا"],["ٱ","ا"],
-  ["ة","ه"],["ى","ي"],
-]);
-function normalizeArabicChar(ch){ return normMap.get(ch) ?? ch; }
-function isArabicLetter(ch){ return ALPH.includes(normalizeArabicChar(ch)); }
-function alphaIndex(ch){ return ALPH.indexOf(normalizeArabicChar(ch)); }
-function shiftArabicChar(ch, shift){
-  const c = normalizeArabicChar(ch);
-  const i = ALPH.indexOf(c);
+const normMap = new Map([["أ","ا"],["إ","ا"],["آ","ا"],["ٱ","ا"],["ة","ه"],["ى","ي"]]);
+const norm = ch => normMap.get(ch) ?? ch;
+const isAr = ch => ALPH.includes(norm(ch));
+const idxOf = ch => ALPH.indexOf(norm(ch));
+function shiftAr(ch, s){
+  const c = norm(ch); const i = ALPH.indexOf(c);
   if (i === -1) return ch;
   const n = ALPH.length;
-  const j = (i + ((shift % n) + n)) % n;
-  return ALPH[j];
+  return ALPH[(i + ((s % n)+n)) % n];
 }
 
-/** ===== 1) Arabic letters to numbers ===== */
+/** ===== 1) Arabic numbering with '-' and words '|' ===== */
 function arabicToNumbers(text){
-  const parts = [];
+  const parts=[];
   for (const ch of text){
-    if (isArabicLetter(ch)) parts.push(String(alphaIndex(ch) + 1));
-    else parts.push(ch === " " ? "|" : ch);
+    if (isAr(ch)) parts.push(String(idxOf(ch)+1));
+    else parts.push(ch===" " ? "|" : ch);
   }
   return parts.join("-");
 }
 function numbersToArabic(text){
-  const tokens = text.split("-");
-  let out = "";
+  const tokens=text.split("-");
+  let out="";
   for (const t of tokens){
-    if (t === "|") { out += " "; continue; }
+    if (t==="|"){ out+=" "; continue; }
     if (/^\d+$/.test(t)){
-      const num = parseInt(t,10);
-      out += (num >= 1 && num <= ALPH.length) ? ALPH[num-1] : t;
+      const n=parseInt(t,10);
+      out += (n>=1 && n<=ALPH.length) ? ALPH[n-1] : t;
     } else out += t;
   }
   return out;
 }
 
-/** ===== 2) Polybius Arabic (6x5) ===== */
-const POLY_ROWS = 6, POLY_COLS = 5;
+/** ===== 2) Polybius (6x5) -> pairs, words '|' ===== */
+const POLY_COLS = 5;
 function polybiusEncode(text){
-  const outWords = [];
-  for (const w of text.split(" ")){
-    let digits = "";
+  return text.split(" ").map(w=>{
+    let s="";
     for (const ch0 of w){
-      const ch = normalizeArabicChar(ch0);
-      const idx = ALPH.indexOf(ch);
-      if (idx === -1) digits += "_" + ch0 + "_";
+      const ch = norm(ch0);
+      const i = ALPH.indexOf(ch);
+      if (i === -1) s += "_" + ch0 + "_";
       else {
-        const r = Math.floor(idx / POLY_COLS) + 1;
-        const c = (idx % POLY_COLS) + 1;
-        digits += String(r) + String(c);
+        const r = Math.floor(i / POLY_COLS) + 1;
+        const c = (i % POLY_COLS) + 1;
+        s += ""+r+c;
       }
     }
-    outWords.push(digits);
-  }
-  return outWords.join("|");
+    return s;
+  }).join("|");
 }
 function polybiusDecode(text){
-  const out = [];
-  for (const w of text.split("|")){
-    let s = "", i = 0;
+  return text.split("|").map(w=>{
+    let out="", i=0;
     while (i < w.length){
       if (w[i] === "_"){
         const j = w.indexOf("_", i+1);
-        if (j !== -1){ s += w.slice(i+1, j); i = j + 1; continue; }
+        if (j !== -1){ out += w.slice(i+1, j); i = j+1; continue; }
       }
-      const a = w[i], b = w[i+1];
+      const a=w[i], b=w[i+1];
       if (!a || !b) break;
       if (/\d/.test(a) && /\d/.test(b)){
-        const r = parseInt(a,10), c = parseInt(b,10);
-        const idx = (r-1)*POLY_COLS + (c-1);
-        s += (idx >= 0 && idx < ALPH.length) ? ALPH[idx] : "�";
+        const r=parseInt(a,10), c=parseInt(b,10);
+        const k=(r-1)*POLY_COLS + (c-1);
+        out += (k>=0 && k<ALPH.length) ? ALPH[k] : "�";
         i += 2;
-      } else { s += w[i]; i += 1; }
+      } else { out += w[i]; i += 1; }
     }
-    out.push(s);
-  }
-  return out.join(" ");
+    return out;
+  }).join(" ");
 }
-function buildPolybiusTable(){
-  let html = "<table><thead><tr><th>صف\\عمود</th>";
-  for (let c=1;c<=POLY_COLS;c++) html += `<th>${c}</th>`;
-  html += "</tr></thead><tbody>";
-  let k=0;
-  for (let r=1;r<=POLY_ROWS;r++){
-    html += `<tr><th>${r}</th>`;
-    for (let c=1;c<=POLY_COLS;c++){
-      const ch =
+
+/** ===== 3) Keyed numbers mapping (3 styles you asked) ===== */
+function makeOrder(style){
+  const base = ALPH.split("");
+  if (style === "rev") return [...base].reverse();
+  if (style === "interleave"){
+    const half = Math.ceil(base.length/2); // 14
+    const A = base.slice(0, half);
+    const B = base.slice(half);
+    const out=[];
+    for (let i=0;i<half;i++){
+      if (A[i]) out.push(A[i]);
+      if (B[i]) out.push(B[i]);
+    }
+    return out; // 1,15,2,16...
+  }
+  return base; // seq
+}
+function makeMapping(style){
+  const order = makeOrder(style);
+  const map = new Map();
+  const inv = new Map();
+  for (let i=0;i<order.length;i++){
+    const num=i+1; // 1..28
+    map.set(order[i], num);
+    inv.set(num, order[i]);
+  }
+  return {order,map,inv};
+}
+function keyedEncode(text, style){
+  const {map} = makeMapping(style);
+  return text.split(" ").map(w=>{
+    let s="";
+    for (const ch0 of w){
+      const ch = norm(ch0);
+      if (ALPH.includes(ch)) s += String(map.get(ch));
+      else s += "_" + ch0 + "_";
+    }
+    return s;
+  }).join("|");
+}
+function keyedDecode(text, style){
+  const {inv} = makeMapping(style);
+  return text.split("|").map(w=>{
+    let out="", i=0;
+    while (i<w.length){
+      if (w[i]==="_"){
+        const j=w.indexOf("_", i+1);
+        if (j!==-1){ out+=w.slice(i+1,j); i=j+1; continue; }
+      }
+      // try 2-digit 10..28
+      if (i+1<w.length && /\d/.test(w[i]) && /\d/.test(w[i+1])){
+        const two=parseInt(w.slice(i,i+2),10);
+        if (two>=10 && two<=28){ out += inv.get(two)||"�"; i+=2; continue; }
+      }
+      // 1-digit 1..9
+      if (/\d/.test(w[i])){
+        const one=parseInt(w[i],10);
+        if (one>=1 && one<=9){ out += inv.get(one)||"�"; i+=1; continue; }
+      }
+      out += w[i]; i+=1;
+    }
+    return out;
+  }).join(" ");
+}
+function buildHint(style, count){
+  const {order,map}=makeMapping(style);
+  const n=Math.max(2, Math.min(28, parseInt(count,10)||6));
+  return order.slice(0,n).map(ch=>`${ch}=${map.get(ch)}`).join("، ");
+}
+function buildFullKey(style){
+  const {order,map}=makeMapping(style);
+  return order.map(ch=>`${ch}=${map.get(ch)}`).join("، ");
+}
+
+/** ===== 4) Caesar ===== */
+function caesarEncrypt(text, k){
+  const s=parseInt(k,10);
+  if (Number.isNaN(s)) return "⚠️ أدخل رقمًا (مثل 3)";
+  let out=""; for (const ch of text) out += shiftAr(ch, s);
+  return out;
+}
+function caesarDecrypt(text, k){
+  const s=parseInt(k,10);
+  if (Number.isNaN(s)) return "⚠️ أدخل رقمًا (مثل 3)";
+  let out=""; for (const ch of text) out += shiftAr(ch, -s);
+  return out;
+}
+
+/** ===== 5) Vigenère ===== */
+function vigenereEncrypt(text, keyWord){
+  keyWord=(keyWord||"").trim();
+  if (!keyWord) return "⚠️ أدخل كلمة مفتاح";
+  const shifts=[];
+  for (const ch of keyWord) if (isAr(ch)) shifts.push(idxOf(ch));
+  if (!shifts.length) return "⚠️ المفتاح لازم عربي";
+  let out="", ki=0;
+  for (const ch of text){
+    if (isAr(ch)){ out += shiftAr(ch, shifts[ki%shifts.length]); ki++; }
+    else out += ch;
+  }
+  return out;
+}
+function vigenereDecrypt(text, keyWord){
+  keyWord=(keyWord||"").trim();
+  if (!keyWord) return "⚠️ أدخل كلمة مفتاح";
+  const shifts=[];
+  for (const ch of keyWord) if (isAr(ch)) shifts.push(idxOf(ch));
+  if (!shifts.length) return "⚠️ المفتاح لازم عربي";
+  let out="", ki=0;
+  for (const ch of text){
+    if (isAr(ch)){ out += shiftAr(ch, -shifts[ki%shifts.length]); ki++; }
+    else out += ch;
+  }
+  return out;
+}
+
+/** ===== 6) Atbash ===== */
+function atbash(text){
+  const n=ALPH.length;
+  let out="";
+  for (const ch0 of text){
+    const ch=norm(ch0);
+    const i=ALPH.indexOf(ch);
+    out += (i===-1) ? ch0 : ALPH[(n-1)-i];
+  }
+  return out;
+}
+
+/** ===== 7) Base64 ===== */
+function toBase64Unicode(str){
+  const utf8 = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_,p)=>String.fromCharCode(parseInt(p,16)));
+  return btoa(utf8);
+}
+function fromBase64Unicode(b64){
+  const bytes=atob(b64);
+  const esc=Array.from(bytes, c=>"%" + c.charCodeAt(0).toString(16).padStart(2,"0")).join("");
+  return decodeURIComponent(esc);
+}
+
+/** ===== UI ===== */
+const elPlain = document.getElementById("plain");
+const elOut   = document.getElementById("out");
+const elMode  = document.getElementById("mode");
+const elKey   = document.getElementById("key");
+const elHint  = document.getElementById("modeHint");
+const keyedControls = document.getElementById("keyedControls");
+const helpPanel = document.getElementById("helpPanel");
+const helpText = document.getElementById("helpText");
+const toggleHelpBtn = document.getElementById("toggleHelpBtn");
+const previewLabel = document.getElementById("previewLabel");
+const previewBoxes = document.getElementById("previewBoxes");
+
+function updateHint(){
+  const m=elMode.value;
+  const hints={
+    arabic_numbers:"كل حرف → رقم (مع -) والكلمات تفصل بـ |",
+    polybius_ar:"كل حرف → رقمين (صف+عمود)، والكلمات تفصل بـ |",
+    keyed_numbers:"كل حرف → رقم حسب المفتاح (3 أنماط)، والكلمات تفصل بـ |",
+    caesar_ar:"حروف (إزاحة). المفتاح رقم",
+    vigenere_ar:"حروف. المفتاح كلمة عربية",
+    atbash_ar:"حروف (عكس). بدون مفتاح",
+    base64:"ترميز نصي للنسخ/الإرسال"
+  };
+  elHint.textContent = hints[m] || "";
+}
+function updateKeyedVisibility(){
+  keyedControls.style.display = (elMode.value === "keyed_numbers") ? "block" : "none";
+}
+function renderBoxesPreview(){
+  const v=(elOut.value||"").trim();
+  if (!v.includes("|")){
+    previewLabel.style.display="none";
+    previewBoxes.style.display="none";
+    previewBoxes.innerHTML="";
+    return;
+  }
+  const words=v.split("|").filter(Boolean);
+  previewBoxes.innerHTML = words.map(w=>`<div class="boxword">${w}</div>`).join("");
+  previewLabel.style.display="block";
+  previewBoxes.style.display="flex";
+}
+function updateHelp(){
+  const m=elMode.value;
+  if (m==="arabic_numbers") helpText.textContent="ترقيم بسيط: ا=1، ب=2… الكلمات تفصل بـ |، والأرقام تفصل بـ -";
+  else if (m==="polybius_ar") helpText.textContent="Polybius: كل حرف رقمين (صف+عمود). داخل الكلمة الأزواج متصلة، وبين الكلمات |";
+  else if (m==="keyed_numbers") helpText.textContent="هذا اللي تستخدمه: تعطي المتسابق تلميح مثل: ا=1، ب=15… وهو يستنتج القاعدة.";
+  else if (m==="caesar_ar") helpText.textContent="قيصر: تحريك الحروف بعدد ثابت (المفتاح رقم).";
+  else if (m==="vigenere_ar") helpText.textContent="Vigenère: مفتاح كلمة عربية يعطي إزاحات مختلفة.";
+  else if (m==="atbash_ar") helpText.textContent="Atbash: عكس الحروف داخل الأبجدية.";
+  else helpText.textContent="Base64: ترميز للنسخ، ليس لغز قوي.";
+}
+
+function encrypt(){
+  const text=elPlain.value;
+  const m=elMode.value;
+  if (m==="arabic_numbers") elOut.value = arabicToNumbers(text);
+  else if (m==="polybius_ar") elOut.value = polybiusEncode(text);
+  else if (m==="keyed_numbers"){
+    const style=document.getElementById("mapStyle").value;
+    elOut.value = keyedEncode(text, style);
+  }
+  else if (m==="caesar_ar") elOut.value = caesarEncrypt(text, elKey.value);
+  else if (m==="vigenere_ar") elOut.value = vigenereEncrypt(text, elKey.value);
+  else if (m==="atbash_ar") elOut.value = atbash(text);
+  else if (m==="base64") elOut.value = toBase64Unicode(text);
+  renderBoxesPreview();
+}
+function decrypt(){
+  const text=elPlain.value;
+  const m=elMode.value;
+  try{
+    if (m==="arabic_numbers") elOut.value = numbersToArabic(text);
+    else if (m==="polybius_ar") elOut.value = polybiusDecode(text);
+    else if (m==="keyed_numbers"){
+      const style=document.getElementById("mapStyle").value;
+      elOut.value = keyedDecode(text, style);
+    }
+    else if (m==="caesar_ar") elOut.value = caesarDecrypt(text, elKey.value);
+    else if (m==="vigenere_ar") elOut.value = vigenereDecrypt(text, elKey.value);
+    else if (m==="atbash_ar") elOut.value = atbash(text);
+    else if (m==="base64") elOut.value = fromBase64Unicode(text);
+  } catch(e){
+    elOut.value="⚠️ خطأ في المدخلات";
+  }
+  renderBoxesPreview();
+}
+
+async function copyOut(){
+  try{ await navigator.clipboard.writeText(elOut.value); alert("تم النسخ ✅"); }
+  catch{ elOut.select(); document.execCommand("copy"); alert("تم النسخ ✅"); }
+}
+function swapOut(){ elPlain.value = elOut.value; elOut.value=""; renderBoxesPreview(); }
+function clearAll(){
+  elPlain.value=""; elOut.value=""; elKey.value="";
+  const ht=document.getElementById("hintText"); if (ht) ht.value="";
+  const fk=document.getElementById("fullKeyText"); if (fk) fk.value="";
+  renderBoxesPreview();
+}
+
+function printCard(){
+  const cipher=(elOut.value||"").trim();
+  if (!cipher){ alert("شفّر النص أولاً ثم اطبع."); return; }
+
+  const hint=(document.getElementById("hintText")?.value||"").trim();
+  const printFull=document.getElementById("printFullKey").checked;
+  const printBoxes=document.getElementById("printBoxes").checked;
+
+  let fullKey="";
+  if (elMode.value==="keyed_numbers" && printFull){
+    const style=document.getElementById("mapStyle").value;
+    fullKey = buildFullKey(style);
+  }
+
+  const cipherHTML = (printBoxes && cipher.includes("|"))
+    ? `<div style="display:flex;gap:10px;flex-wrap:wrap;">${cipher.split("|").filter(Boolean).map(w=>`<div style="border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;background:#fff;">${w}</div>`).join("")}</div>`
+    : `<div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipher}</div>`;
+
+  const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>بطاقة لغز</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Tahoma,Arial;margin:24px;line-height:1.7;}
+    .box{border:2px solid #111;border-radius:14px;padding:16px;max-width:900px;}
+    .hint{margin-top:12px;font-size:14px;}
+    .small{color:#666;font-size:12px;margin-top:10px;}
+    @media print{body{margin:0}.box{border:0;border-radius:0}}
+  </style></head><body>
+  <div class="box">
+    <h2 style="margin:0 0 10px;">🗝️ بطاقة لغز — لعبة الكنز</h2>
+    ${cipherHTML}
+    <div class="hint"><b>المفتاح / التلميح:</b> ${hint ? hint : "(اكتب التلميح من المنظّم)"}</div>
+    ${fullKey ? `<div class="small"><b>المفتاح الكامل:</b><br>${fullKey}</div>` : ""}
+  </div>
+  </body></html>`;
+
+  const w=window.open("","_blank");
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(()=>w.print(), 200);
+}
+
+/** ===== keyed buttons ===== */
+function genHint(){
+  const style=document.getElementById("mapStyle").value;
+  const n=document.getElementById("hintCount").value;
+  document.getElementById("hintText").value = buildHint(style, n);
+}
+function genFull(){
+  const style=document.getElementById("mapStyle").value;
+  document.getElementById("fullKeyText").value = buildFullKey(style);
+}
+
+/** ===== bindings ===== */
+document.getElementById("encryptBtn").addEventListener("click", encrypt);
+document.getElementById("decryptBtn").addEventListener("click", decrypt);
+document.getElementById("copyBtn").addEventListener("click", copyOut);
+document.getElementById("swapBtn").addEventListener("click", swapOut);
+document.getElementById("clearBtn").addEventListener("click", clearAll);
+document.getElementById("printBtn").addEventListener("click", printCard);
+
+document.getElementById("genHintBtn").addEventListener("click", genHint);
+document.getElementById("genFullKeyBtn").addEventListener("click", genFull);
+
+toggleHelpBtn.addEventListener("click", ()=>{
+  helpPanel.classList.toggle("open");
+  toggleHelpBtn.textContent = helpPanel.classList.contains("open") ? "إخفاء الشرح" : "إظهار الشرح";
+});
+
+elMode.addEventListener("change", ()=>{ updateHint(); updateKeyedVisibility(); updateHelp(); });
+
+updateHint();
+updateKeyedVisibility();
+updateHelp();
+</script>
+</body>
+</html>
