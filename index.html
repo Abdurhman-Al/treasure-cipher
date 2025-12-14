@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ار" dir="rtl">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -478,15 +478,20 @@ function printCard(){
     fullKey = buildFullKey(style);
   }
 
-  // build cipherHTML safely
+  // build cipherHTML safely (fixed: force LTR for numeric modes to avoid bidi reversal)
   let cipherHTML = "";
+  const numericModes = ["arabic_numbers", "polybius_ar", "keyed_numbers"];
+  const forceLtrStyle = numericModes.includes(elMode.value)
+    ? "direction:ltr;unicode-bidi:plaintext;text-align:left;"
+    : "";
+
   if (printBoxes && cipher.includes("|")){
     const boxes = cipher.split("|").filter(Boolean)
-      .map(w => `<div style="border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;">${w}</div>`)
+      .map(w => `<div style="border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;${forceLtrStyle}">${w}</div>`)
       .join("");
     cipherHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;">${boxes}</div>`;
   } else {
-    cipherHTML = `<div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipher}</div>`;
+    cipherHTML = `<div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;${forceLtrStyle}">${cipher}</div>`;
   }
 
   const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/>
