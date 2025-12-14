@@ -10,8 +10,18 @@
     h1 { margin: 0 0 12px; font-size: 22px; }
     label { display:block; margin: 10px 0 6px; font-weight: 700; }
     textarea, input, select { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #ccc; font-size: 15px; }
-#out.ltr { direction: ltr; unicode-bidi: plaintext; text-align: left; }
-#out.rtl { direction: rtl; unicode-bidi: plaintext; text-align: right; }
+
+    /* اتجاهات الإخراج */
+    #out.ltr {
+      direction: ltr;
+      unicode-bidi: plaintext;
+      text-align: right; /* ✅ يمين (شكل عربي) بدون قلب الأرقام */
+    }
+    #out.rtl {
+      direction: rtl;
+      unicode-bidi: plaintext;
+      text-align: right;
+    }
 
     textarea { min-height: 110px; resize: vertical; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -65,6 +75,7 @@
       </div>
     </div>
 
+    <!-- إعدادات تشفير الأرقام مع مفتاح -->
     <div id="keyedControls" style="margin-top:12px; display:none;">
       <div class="hr"></div>
       <label>إعدادات تشفير الأرقام مع مفتاح</label>
@@ -151,7 +162,7 @@ function shiftAr(ch, s){
   return ALPH[(i + ((s % n)+n)) % n];
 }
 
-/** ===== 1) Arabic numbering with '-' and words '|' ===== */
+/** ===== 1) Arabic numbering (unchanged separators, but keep direction handled by CSS) ===== */
 function arabicToNumbers(text){
   const parts=[];
   for (const ch of text){
@@ -174,7 +185,7 @@ function numbersToArabic(text){
   return out;
 }
 
-/** ===== 2) Polybius ===== */
+/** ===== 2) Polybius (fix: add spaces between pairs) ===== */
 const POLY_COLS = 5;
 function polybiusEncode(text){
   return text.split(" ").map(w=>{
@@ -186,14 +197,32 @@ function polybiusEncode(text){
       else {
         const r = Math.floor(i / POLY_COLS) + 1;
         const c = (i % POLY_COLS) + 1;
-        s += ""+r+c;
+        s += ""+r+c + " ";   // ✅ فاصل
       }
     }
-    return s;
+    return s.trim();
   }).join("|");
 }
 function polybiusDecode(text){
   return text.split("|").map(w=>{
+    // allow spaces between pairs
+    const clean = w.trim().replace(/\s+/g, " ");
+    // if spaces exist: split into tokens; else fallback to old parsing
+    if (clean.includes(" ")){
+      const toks = clean.split(" ").filter(Boolean);
+      let out="";
+      for (const t of toks){
+        if (t.startsWith("_") && t.endsWith("_")) { out += t.slice(1,-1); continue; }
+        if (/^\d\d$/.test(t)){
+          const r=parseInt(t[0],10), c=parseInt(t[1],10);
+          const k=(r-1)*POLY_COLS + (c-1);
+          out += (k>=0 && k<ALPH.length) ? ALPH[k] : "�";
+        } else out += t;
+      }
+      return out;
+    }
+
+    // fallback (old)
     let out="", i=0;
     while (i < w.length){
       if (w[i] === "_"){
@@ -213,7 +242,7 @@ function polybiusDecode(text){
   }).join(" ");
 }
 
-/** ===== 3) Keyed numbers mapping ===== */
+/** ===== 3) Keyed numbers mapping (fix: pad to 2 digits + spaces) ===== */
 function makeOrder(style){
   const base = ALPH.split("");
   if (style === "rev") return [...base].reverse();
@@ -247,15 +276,30 @@ function keyedEncode(text, style){
     let s="";
     for (const ch0 of w){
       const ch = norm(ch0);
-      if (ALPH.includes(ch)) s += String(map.get(ch));
+      if (ALPH.includes(ch)) s += String(map.get(ch)).padStart(2,"0") + " "; // ✅
       else s += "_" + ch0 + "_";
     }
-    return s;
+    return s.trim();
   }).join("|");
 }
 function keyedDecode(text, style){
   const {inv} = makeMapping(style);
   return text.split("|").map(w=>{
+    const clean = w.trim().replace(/\s+/g, " ");
+    if (clean.includes(" ")){
+      const toks = clean.split(" ").filter(Boolean);
+      let out="";
+      for (const t of toks){
+        if (t.startsWith("_") && t.endsWith("_")) { out += t.slice(1,-1); continue; }
+        if (/^\d+$/.test(t)){
+          const n=parseInt(t,10);
+          out += inv.get(n) || "�";
+        } else out += t;
+      }
+      return out;
+    }
+
+    // fallback (old)
     let out="", i=0;
     while (i<w.length){
       if (w[i]==="_"){
@@ -285,7 +329,7 @@ function buildFullKey(style){
   return order.map(ch=>`${ch}=${map.get(ch)}`).join("، ");
 }
 
-/** ===== Caesar, Vigenere, Atbash, Base64 (unchanged) ===== */
+/** ===== 4) Caesar ===== */
 function caesarEncrypt(text, k){
   const s=parseInt(k,10);
   if (Number.isNaN(s)) return "⚠️ أدخل رقمًا (مثل 3)";
@@ -298,6 +342,8 @@ function caesarDecrypt(text, k){
   let out=""; for (const ch of text) out += shiftAr(ch, -s);
   return out;
 }
+
+/** ===== 5) Vigenère ===== */
 function vigenereEncrypt(text, keyWord){
   keyWord=(keyWord||"").trim();
   if (!keyWord) return "⚠️ أدخل كلمة مفتاح";
@@ -324,6 +370,8 @@ function vigenereDecrypt(text, keyWord){
   }
   return out;
 }
+
+/** ===== 6) Atbash ===== */
 function atbash(text){
   const n=ALPH.length;
   let out="";
@@ -334,6 +382,8 @@ function atbash(text){
   }
   return out;
 }
+
+/** ===== 7) Base64 ===== */
 function toBase64Unicode(str){
   const utf8 = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_,p)=>String.fromCharCode(parseInt(p,16)));
   return btoa(utf8);
@@ -357,12 +407,18 @@ const toggleHelpBtn = document.getElementById("toggleHelpBtn");
 const previewLabel = document.getElementById("previewLabel");
 const previewBoxes = document.getElementById("previewBoxes");
 
+function updateOutDirection(){
+  const numericModes = ["arabic_numbers", "polybius_ar", "keyed_numbers"];
+  elOut.classList.remove("ltr", "rtl");
+  elOut.classList.add(numericModes.includes(elMode.value) ? "ltr" : "rtl");
+}
+
 function updateHint(){
   const m=elMode.value;
   const hints={
     arabic_numbers:"كل حرف → رقم (مع -) والكلمات تفصل بـ |",
-    polybius_ar:"كل حرف → رقمين (صف+عمود)، والكلمات تفصل بـ |",
-    keyed_numbers:"كل حرف → رقم حسب المفتاح (3 أنماط)، والكلمات تفصل بـ |",
+    polybius_ar:"كل حرف → رقمين (صف+عمود) مع مسافة، والكلمات تفصل بـ |",
+    keyed_numbers:"كل حرف → رقم (01-28) مع مسافة حسب المفتاح، والكلمات تفصل بـ |",
     caesar_ar:"حروف (إزاحة). المفتاح رقم",
     vigenere_ar:"حروف. المفتاح كلمة عربية",
     atbash_ar:"حروف (عكس). بدون مفتاح",
@@ -373,7 +429,6 @@ function updateHint(){
 function updateKeyedVisibility(){
   keyedControls.style.display = (elMode.value === "keyed_numbers") ? "block" : "none";
 }
-
 function renderBoxesPreview(){
   const v=(elOut.value||"").trim();
   if (!v.includes("|")){
@@ -382,78 +437,44 @@ function renderBoxesPreview(){
     previewBoxes.innerHTML="";
     return;
   }
-  // عرض الصناديق من اليمين لليسار: نعكس الترتيب عند الإنشاء
-  const words=v.split("|").filter(Boolean).slice().reverse();
-  previewBoxes.innerHTML = words.map(w=>`<div class="boxword" style="direction:ltr;unicode-bidi:isolate;">${w}</div>`).join("");
+  const words=v.split("|").filter(Boolean);
+  previewBoxes.innerHTML = words.map(w=>`<div class="boxword">${w}</div>`).join("");
   previewLabel.style.display="block";
   previewBoxes.style.display="flex";
 }
-
 function updateHelp(){
   const m=elMode.value;
   if (m==="arabic_numbers") helpText.textContent="ترقيم بسيط: ا=1، ب=2… الكلمات تفصل بـ |، والأرقام تفصل بـ -";
-  else if (m==="polybius_ar") helpText.textContent="Polybius: كل حرف رقمين (صف+عمود). داخل الكلمة الأزواج متصلة، وبين الكلمات |";
-  else if (m==="keyed_numbers") helpText.textContent="هذا اللي تستخدمه: تعطي المتسابق تلميح مثل: ا=1، ب=15… وهو يستنتج القاعدة.";
+  else if (m==="polybius_ar") helpText.textContent="Polybius: كل حرف رقمين (صف+عمود). الآن بين كل زوج مسافة لتفادي اللبس.";
+  else if (m==="keyed_numbers") helpText.textContent="تعطي المتسابق تلميح مثل: ا=1، ب=15… وهو يفك الشفرة. الآن الناتج رقمين ثابتين مع مسافة.";
   else if (m==="caesar_ar") helpText.textContent="قيصر: تحريك الحروف بعدد ثابت (المفتاح رقم).";
   else if (m==="vigenere_ar") helpText.textContent="Vigenère: مفتاح كلمة عربية يعطي إزاحات مختلفة.";
   else if (m==="atbash_ar") helpText.textContent="Atbash: عكس الحروف داخل الأبجدية.";
   else helpText.textContent="Base64: ترميز للنسخ، ليس لغز قوي.";
 }
 
-/** Helper: reverse word-order for numeric modes for display/printing */
-const numericModes = ["arabic_numbers", "polybius_ar", "keyed_numbers"];
-function reverseWordOrderForDisplay(s){
-  if (!s) return s;
-  if (s.includes("|")){
-    return s.split("|").filter(Boolean).slice().reverse().join("|");
-  }
-  return s;
-}
-function reverseWordOrderForDecode(s){
-  if (!s) return s;
-  if (s.includes("|")){
-    return s.split("|").filter(Boolean).slice().reverse().join("|");
-  }
-  return s;
-}
-
 function encrypt(){
   const text=elPlain.value;
   const m=elMode.value;
-  let encoded="";
-  if (m==="arabic_numbers") encoded = arabicToNumbers(text);
-  else if (m==="polybius_ar") encoded = polybiusEncode(text);
+
+  if (m==="arabic_numbers") elOut.value = arabicToNumbers(text);
+  else if (m==="polybius_ar") elOut.value = polybiusEncode(text);
   else if (m==="keyed_numbers"){
     const style=document.getElementById("mapStyle").value;
-    encoded = keyedEncode(text, style);
+    elOut.value = keyedEncode(text, style);
   }
-  else if (m==="caesar_ar") encoded = caesarEncrypt(text, elKey.value);
-  else if (m==="vigenere_ar") encoded = vigenereEncrypt(text, elKey.value);
-  else if (m==="atbash_ar") encoded = atbash(text);
-  else if (m==="base64") encoded = toBase64Unicode(text);
+  else if (m==="caesar_ar") elOut.value = caesarEncrypt(text, elKey.value);
+  else if (m==="vigenere_ar") elOut.value = vigenereEncrypt(text, elKey.value);
+  else if (m==="atbash_ar") elOut.value = atbash(text);
+  else if (m==="base64") elOut.value = toBase64Unicode(text);
 
-  // If numeric mode, display word-groups RTL (reverse order) so overall reading is RTL,
-  // but keep numbers inside groups in their natural order by not altering group content.
-  if (numericModes.includes(m) && encoded.includes("|")){
-    elOut.value = reverseWordOrderForDisplay(encoded);
-  } else {
-    elOut.value = encoded;
-  }
-
-  // set text direction class for textarea (numbers inside LTR or RTL view)
   updateOutDirection();
   renderBoxesPreview();
 }
-
 function decrypt(){
-  let text=elPlain.value;
+  const text=elPlain.value;
   const m=elMode.value;
   try{
-    // If user pasted a printed (reversed) numeric string, reverse words back before decoding
-    if (numericModes.includes(m) && text.includes("|")){
-      text = reverseWordOrderForDecode(text);
-    }
-
     if (m==="arabic_numbers") elOut.value = numbersToArabic(text);
     else if (m==="polybius_ar") elOut.value = polybiusDecode(text);
     else if (m==="keyed_numbers"){
@@ -475,17 +496,18 @@ async function copyOut(){
   try{ await navigator.clipboard.writeText(elOut.value); alert("تم النسخ ✅"); }
   catch{ elOut.select(); document.execCommand("copy"); alert("تم النسخ ✅"); }
 }
-function swapOut(){ elPlain.value = elOut.value; elOut.value=""; renderBoxesPreview(); }
+function swapOut(){ elPlain.value = elOut.value; elOut.value=""; updateOutDirection(); renderBoxesPreview(); }
 function clearAll(){
   elPlain.value=""; elOut.value=""; elKey.value="";
   const ht=document.getElementById("hintText"); if (ht) ht.value="";
   const fk=document.getElementById("fullKeyText"); if (fk) fk.value="";
+  updateOutDirection();
   renderBoxesPreview();
 }
 
 function printCard(){
-  const cipherRaw=(elOut.value||"").trim();
-  if (!cipherRaw){ alert("شفّر النص أولاً ثم اطبع."); return; }
+  const cipher=(elOut.value||"").trim();
+  if (!cipher){ alert("شفّر النص أولاً ثم اطبع."); return; }
 
   const hint=(document.getElementById("hintText")?.value||"").trim();
   const printFull=document.getElementById("printFullKey").checked;
@@ -497,26 +519,20 @@ function printCard(){
     fullKey = buildFullKey(style);
   }
 
-  // For printing, use the displayed value (cipherRaw).
-  // Build HTML so that boxes are visually right→left, but each box content is LTR/isolate.
-  let cipherHTML = "";
+  const numericModes = ["arabic_numbers", "polybius_ar", "keyed_numbers"];
   const isNumericMode = numericModes.includes(elMode.value);
 
-  if (printBoxes && cipherRaw.includes("|")) {
-    // reverse order so first word appears at right
-    const parts = cipherRaw.split("|").filter(Boolean).slice().reverse();
-    const boxes = parts.map(p => {
-      // force LTR inside each box and isolate
-      return `<div style="direction:ltr;unicode-bidi:isolate;border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;margin:4px;display:inline-block;">${p}</div>`;
-    }).join("");
-    // container RTL so boxes display from right to left
+  let cipherHTML = "";
+  if (printBoxes && cipher.includes("|")) {
+    const boxes = cipher.split("|").filter(Boolean)
+      .map(w => `<div style="direction:ltr;unicode-bidi:plaintext;border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;margin:4px;text-align:right;">${w}</div>`)
+      .join("");
     cipherHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;direction:rtl;align-items:flex-start;">${boxes}</div>`;
   } else {
-    // single-line: wrap overall container RTL but wrap numeric content LTR/isolate
     if (isNumericMode) {
-      cipherHTML = `<div style="direction:rtl;"><div style="direction:ltr;unicode-bidi:isolate;border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;display:inline-block;">${cipherRaw}</div></div>`;
+      cipherHTML = `<div style="direction:rtl;"><div style="direction:ltr;unicode-bidi:plaintext;text-align:right;border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipher}</div></div>`;
     } else {
-      cipherHTML = `<div style="direction:rtl;"><div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipherRaw}</div></div>`;
+      cipherHTML = `<div style="direction:rtl;"><div style="text-align:right;border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipher}</div></div>`;
     }
   }
 
@@ -546,7 +562,7 @@ function printCard(){
   setTimeout(()=>w.print(), 200);
 }
 
-/** ===== keyed helper buttons ===== */
+/** ===== keyed buttons ===== */
 function genHint(){
   const style=document.getElementById("mapStyle").value;
   const n=document.getElementById("hintCount").value;
@@ -573,19 +589,16 @@ toggleHelpBtn.addEventListener("click", ()=>{
   toggleHelpBtn.textContent = helpPanel.classList.contains("open") ? "إخفاء الشرح" : "إظهار الشرح";
 });
 
-elMode.addEventListener("change", ()=>{updateHint();updateKeyedVisibility(); updateHelp(); updateOutDirection(); });
+elMode.addEventListener("change", ()=>{
+  updateHint();
+  updateKeyedVisibility();
+  updateHelp();
+  updateOutDirection();
+});
 
 updateHint();
 updateKeyedVisibility();
 updateHelp();
-
-function updateOutDirection(){
-  const m = elMode.value;
-  elOut.classList.remove("ltr", "rtl");
-  // textarea direction: keep entire textarea rtl (so overall order is RTL),
-  // but numeric display handled by reversing groups and by LTR spans in preview/print.
-  elOut.classList.add("rtl");
-}
 updateOutDirection();
 </script>
 </body>
