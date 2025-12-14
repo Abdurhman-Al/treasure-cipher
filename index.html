@@ -163,27 +163,15 @@ function shiftAr(ch, s){
 
 /** ===== 1) Arabic numbering with '-' and words '|' ===== */
 function arabicToNumbers(text){
-  const parts = [];
-  for (const ch of text){
-    if (isAr(ch)) {
-      // رقمين دائمًا لتجنب اللبس + يقرأ صح
-      parts.push(String(idxOf(ch) + 1).padStart(2, "0"));
-    } else if (ch === " ") {
-      parts.push("|"); // فاصل كلمات
-    } else {
-      parts.push(ch);  // رموز/أرقام كما هي
-    }
-  }
-  return parts.join(" ");
-}
-
   const parts=[];
   for (const ch of text){
     if (isAr(ch)) parts.push(String(idxOf(ch)+1));
-    else parts.push(ch===" " ? "|" : ch);
+    else if (ch === " ") parts.push("|"); // فاصل كلمات
+    else parts.push(ch);
   }
   return parts.join("-");
 }
+
 function numbersToArabic(text){
   const tokens=text.split("-");
   let out="";
@@ -490,9 +478,16 @@ function printCard(){
     fullKey = buildFullKey(style);
   }
 
-  const cipherHTML = (printBoxes && cipher.includes("|"))
-    ? `<div style="display:flex;gap:10px;flex-wrap:wrap;">${cipher.split("|").filter(Boolean).map(w=>`<div style="border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;background:#fff;">${w}</div>`).join("")}</div>`
-    : `<div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipher}</div>`;
+  // build cipherHTML safely
+  let cipherHTML = "";
+  if (printBoxes && cipher.includes("|")){
+    const boxes = cipher.split("|").filter(Boolean)
+      .map(w => `<div style="border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;">${w}</div>`)
+      .join("");
+    cipherHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;">${boxes}</div>`;
+  } else {
+    cipherHTML = `<div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipher}</div>`;
+  }
 
   const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
