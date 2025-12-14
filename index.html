@@ -28,7 +28,7 @@
     #out.ltr{
       direction:ltr;
       unicode-bidi:bidi-override;
-      text-align:right;   /* مهم: تبقى يمين */
+      text-align:right;
     }
     #out.rtl{
       direction:rtl;
@@ -116,7 +116,7 @@
       <label>المفتاح كامل (اختياري للمنظّم فقط)</label>
       <textarea id="fullKeyText" placeholder="سيظهر هنا المفتاح كامل"></textarea>
 
-      <div class="small">ملاحظة: داخل الكلمة الأرقام تفصل بمسافة، وبين الكلمات <code>|</code>.</div>
+      <div class="small">ملاحظة: داخل الكلمة الأرقام تفصل بمسافة، وبين الكلمات <code>|</code>. ✅ والأرقام داخل كل كلمة تُعكس تلقائياً لتناسب القراءة العربية.</div>
     </div>
 
     <div class="btns">
@@ -151,8 +151,6 @@
 const ALPH = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي";
 const normMap = new Map([["أ","ا"],["إ","ا"],["آ","ا"],["ٱ","ا"],["ة","ه"],["ى","ي"]]);
 const norm = ch => normMap.get(ch) ?? ch;
-const isAr = ch => ALPH.includes(norm(ch));
-const idxOf = ch => ALPH.indexOf(norm(ch));
 
 function pad2(n){ return String(n).padStart(2,"0"); }
 
@@ -164,7 +162,7 @@ function shiftAr(ch, s){
   return ALPH[(i + ((s % n)+n)) % n];
 }
 
-/** ===== (حروف) 1) Caesar ===== */
+/** ===== (حروف) Caesar ===== */
 function caesarEncrypt(text, k){
   const s = parseInt(k,10);
   if (Number.isNaN(s)) return "⚠️ أدخل رقمًا للمفتاح (مثل 3)";
@@ -180,7 +178,7 @@ function caesarDecrypt(text, k){
   return out;
 }
 
-/** ===== (حروف) 2) Reverse each word ===== */
+/** ===== (حروف) Reverse each word ===== */
 function reverseEachWord(text){
   return (text ?? "")
     .trim()
@@ -189,7 +187,7 @@ function reverseEachWord(text){
     .join(" ");
 }
 
-/** ===== (أرقام) Mapping order & map ===== */
+/** ===== (أرقام) Mapping ===== */
 function makeOrder(style){
   const base = ALPH.split("");
 
@@ -198,7 +196,6 @@ function makeOrder(style){
   }
 
   if(style === "interleave"){
-    // 1,15,2,16...
     const half = Math.ceil(base.length/2); // 14
     const A = base.slice(0, half);
     const B = base.slice(half);
@@ -210,8 +207,7 @@ function makeOrder(style){
     return out;
   }
 
-  // seq / odd / even: ترتيب طبيعي
-  return base;
+  return base; // seq / odd / even
 }
 
 function makeMapping(style){
@@ -221,7 +217,7 @@ function makeMapping(style){
 
   for(let i=0;i<order.length;i++){
     let num;
-    if(style === "odd") num = 1 + 2*i;   // 1..55
+    if(style === "odd") num = 1 + 2*i;       // 1..55
     else if(style === "even") num = 2 + 2*i; // 2..56
     else num = i + 1; // 1..28
 
@@ -232,8 +228,7 @@ function makeMapping(style){
 }
 
 /** ===== (أرقام) Encode/Decode
-    - داخل الكلمة: "03 05 08"
-    - بين الكلمات: " | "
+    المطلوب: عكس الأرقام داخل كل كلمة مثل الصورة (08 05 03)
 */
 function encodeNumbers(text, style){
   const {map} = makeMapping(style);
@@ -246,9 +241,11 @@ function encodeNumbers(text, style){
       if(ALPH.includes(ch)){
         toks.push(pad2(map.get(ch)));
       }else{
-        toks.push(`_${ch0}_`); // لحماية الرموز
+        toks.push(`_${ch0}_`);
       }
     }
+    // ✅ عكس داخل الكلمة (هذا هو المطلوب)
+    toks.reverse();
     return toks.join(" ");
   });
 
@@ -262,6 +259,9 @@ function decodeNumbers(text, style){
 
   const outWords = parts.map(part=>{
     const toks = part.split(/\s+/).filter(Boolean);
+    // ✅ لأن التشفير يعكس داخل الكلمة، نفكها بعكس مرة ثانية قبل التحويل للحروف
+    toks.reverse();
+
     let out="";
     for(const tok of toks){
       if(tok.startsWith("_") && tok.endsWith("_") && tok.length>=3){
@@ -314,20 +314,15 @@ const toggleHelpBtn = document.getElementById("toggleHelpBtn");
 function updateModeUI(){
   const m = elMode.value;
 
-  // إظهار/إخفاء إعدادات الأرقام
   numControls.style.display = (m === "num_ar") ? "block" : "none";
-
-  // المفتاح فقط لقيصر
   document.getElementById("keyWrap").style.display = (m === "caesar_ar") ? "block" : "none";
 
-  // اتجاه الناتج
   const numeric = (m === "num_ar");
   elOut.classList.remove("ltr","rtl");
   elOut.classList.add(numeric ? "ltr" : "rtl");
 
-  // التلميح أعلى النوع
   const hints = {
-    num_ar: "كل حرف → رقمين (مثل 03). داخل الكلمة فصل بمسافة، وبين الكلمات |",
+    num_ar: "داخل الكلمة: أرقام مفصولة بمسافة، وبين الكلمات | ✅ (الأرقام داخل كل كلمة معكوسة لتناسب القراءة العربية)",
     caesar_ar: "قيصر: إزاحة الحروف بعدد ثابت (أدخل رقم المفتاح).",
     reverse_words: "يعكس كل كلمة: تجد الكنز → دجت زنكلا"
   };
@@ -342,9 +337,9 @@ function updateHelp(){
   if(m === "num_ar"){
     helpText.textContent =
 `(أرقام) ترقيم الحروف العربية
-- داخل الكلمة: 03 05 08
+- داخل الكلمة: 08 05 03  (✅ معكوس داخل الكلمة)
 - بين الكلمات: |
-- التلميح: اكتب عدة أزواج مثل: ا=01، ب=02... ثم المتسابق يحل.
+- التلميح: اكتب عدة أزواج مثل: ا=01، ب=02...
 
 الأنماط:
 - متسلسل / متناوب / معكوس / فردي / زوجي
@@ -366,11 +361,16 @@ function updateHelp(){
   }
 }
 
+function escapeHtml(s){
+  return (s ?? "").toString().replace(/[&<>"']/g, c => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
 function renderBoxesPreview(){
   const m = elMode.value;
   const v = (elOut.value||"").trim();
 
-  // المعاينة فقط للأرقام
   if(m !== "num_ar" || !v.includes("|")){
     previewLabel.style.display="none";
     previewBoxes.style.display="none";
@@ -382,12 +382,6 @@ function renderBoxesPreview(){
   previewBoxes.innerHTML = words.map(w => `<div class="boxword">${escapeHtml(w)}</div>`).join("");
   previewLabel.style.display="block";
   previewBoxes.style.display="flex";
-}
-
-function escapeHtml(s){
-  return (s ?? "").toString().replace(/[&<>"']/g, c => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[c]));
 }
 
 /** ===== Actions ===== */
@@ -402,7 +396,6 @@ function encrypt(){
   } else if(m === "reverse_words"){
     elOut.value = reverseEachWord(text);
   }
-
   renderBoxesPreview();
 }
 
@@ -416,13 +409,11 @@ function decrypt(){
     } else if(m === "caesar_ar"){
       elOut.value = caesarDecrypt(text, elKey.value);
     } else if(m === "reverse_words"){
-      // عكس الكلمة مرتين يرجعها
       elOut.value = reverseEachWord(text);
     }
   }catch(e){
     elOut.value = "⚠️ خطأ في المدخلات";
   }
-
   renderBoxesPreview();
 }
 
@@ -430,13 +421,11 @@ async function copyOut(){
   try{ await navigator.clipboard.writeText(elOut.value); alert("تم النسخ ✅"); }
   catch{ elOut.select(); document.execCommand("copy"); alert("تم النسخ ✅"); }
 }
-
 function swapOut(){
   elPlain.value = elOut.value;
   elOut.value = "";
   renderBoxesPreview();
 }
-
 function clearAll(){
   elPlain.value="";
   elOut.value="";
