@@ -151,6 +151,20 @@ function shiftAr(ch, s){
 
 /** ===== 1) Arabic numbering with '-' and words '|' ===== */
 function arabicToNumbers(text){
+  const parts = [];
+  for (const ch of text){
+    if (isAr(ch)) {
+      // رقمين دائمًا لتجنب اللبس + يقرأ صح
+      parts.push(String(idxOf(ch) + 1).padStart(2, "0"));
+    } else if (ch === " ") {
+      parts.push("|"); // فاصل كلمات
+    } else {
+      parts.push(ch);  // رموز/أرقام كما هي
+    }
+  }
+  return parts.join(" ");
+}
+
   const parts=[];
   for (const ch of text){
     if (isAr(ch)) parts.push(String(idxOf(ch)+1));
