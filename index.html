@@ -24,16 +24,11 @@
     .small { font-size: 12px; color:#666; }
     .hr { height:1px; background:#eee; margin:16px 0; }
 
-    /* اتجاهات الإخراج */
-    #out.ltr{
-      direction:ltr;
-      unicode-bidi:bidi-override;
-      text-align:right;
-    }
-    #out.rtl{
-      direction:rtl;
-      unicode-bidi:plaintext;
-      text-align:right;
+    /* الناتج: نخليه RTL دائمًا عشان ترتيب الكلمات يكون صحيح */
+    #out{
+      direction: rtl;
+      unicode-bidi: plaintext;
+      text-align: right;
     }
 
     .muted { color:#777; font-weight:700; font-size: 12px; }
@@ -99,12 +94,11 @@
             <option value="even">زوجي: ا=02، ب=04، ت=06…</option>
           </select>
 
-          <!-- ✅ زر تشغيل/إيقاف العكس -->
           <div class="tog">
             <input type="checkbox" id="flipInsideWord" checked />
             <span>عكس الأرقام داخل الكلمة (مثل: 08 05 03)</span>
           </div>
-          <div class="small">إذا طلع ترتيب غلط في جهاز/متصفح، جرّب إلغاء هذا الخيار.</div>
+          <div class="small">اتركه شغال عشان يطلع مثل ورقتك.</div>
         </div>
 
         <div>
@@ -138,7 +132,7 @@
     </div>
 
     <label>الناتج</label>
-    <textarea id="out" class="ltr" placeholder="سيظهر هنا النص المشفّر أو المفكوك"></textarea>
+    <textarea id="out" placeholder="سيظهر هنا النص المشفّر أو المفكوك"></textarea>
 
     <div class="muted" id="previewLabel" style="margin-top:10px; display:none;">معاينة (كلمات داخل صناديق):</div>
     <div class="boxes" id="previewBoxes" style="display:none;"></div>
@@ -162,6 +156,11 @@ const normMap = new Map([["أ","ا"],["إ","ا"],["آ","ا"],["ٱ","ا"],["ة","
 const norm = ch => normMap.get(ch) ?? ch;
 
 function pad2(n){ return String(n).padStart(2,"0"); }
+
+// ✅ عشان نضمن ترتيب الكلمات ما ينقلب داخل textarea:
+// نغلف كل "كلمة مشفرة بالأرقام" بعوازل اتجاه (LRI...PDI)
+function ltrIsolate(s){ return "\u2066" + s + "\u2069"; }
+function stripBidi(s){ return (s ?? "").replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, ""); }
 
 function shiftAr(ch, s){
   const c = norm(ch);
@@ -200,9 +199,7 @@ function reverseEachWord(text){
 function makeOrder(style){
   const base = ALPH.split("");
 
-  if(style === "rev"){
-    return [...base].reverse();
-  }
+  if(style === "rev") return [...base].reverse();
 
   if(style === "interleave"){
     const half = Math.ceil(base.length/2);
@@ -236,7 +233,7 @@ function makeMapping(style){
   return {order, map, inv};
 }
 
-/** ===== (أرقام) Encode/Decode (مع خيار العكس) ===== */
+/** ===== (أرقام) Encode/Decode ===== */
 function encodeNumbers(text, style, flipInside){
   const {map} = makeMapping(style);
   const words = (text ?? "").trim().split(/\s+/).filter(Boolean);
@@ -252,16 +249,17 @@ function encodeNumbers(text, style, flipInside){
     return toks.join(" ");
   });
 
-  return encWords.join(" | ");
+  // ✅ هنا السر: نغلف كل كلمة بعازل LTR حتى ما تنقلب الكلمات داخل textarea
+  return encWords.map(ltrIsolate).join(" | ");
 }
 
 function decodeNumbers(text, style, flipInside){
   const {inv} = makeMapping(style);
-  const t = (text ?? "").trim();
-  const parts = t.split("|").map(s=>s.trim()).filter(Boolean);
+  const clean = stripBidi((text ?? "")).trim();
+  const parts = clean.split("|").map(s=>s.trim()).filter(Boolean);
 
   const outWords = parts.map(part=>{
-    const toks = part.split(/\s+/).filter(Boolean);
+    const toks = stripBidi(part).split(/\s+/).filter(Boolean);
     if(flipInside) toks.reverse();
 
     let out="";
@@ -273,9 +271,7 @@ function decodeNumbers(text, style, flipInside){
       if(/^\d+$/.test(tok)){
         const n = parseInt(tok,10);
         out += inv.get(n) || "�";
-      }else{
-        out += tok;
-      }
+      }else out += tok;
     }
     return out;
   });
@@ -320,12 +316,8 @@ function updateModeUI(){
   numControls.style.display = (m === "num_ar") ? "block" : "none";
   document.getElementById("keyWrap").style.display = (m === "caesar_ar") ? "block" : "none";
 
-  const numeric = (m === "num_ar");
-  elOut.classList.remove("ltr","rtl");
-  elOut.classList.add(numeric ? "ltr" : "rtl");
-
   const hints = {
-    num_ar: "داخل الكلمة: أرقام مفصولة بمسافة، وبين الكلمات | (جرّب تشغيل/إيقاف عكس داخل الكلمة)",
+    num_ar: "✅ تم إصلاح ترتيب الكلمات في الناتج. داخل الكلمة أرقام بمسافة، وبين الكلمات |",
     caesar_ar: "قيصر: إزاحة الحروف بعدد ثابت (أدخل رقم المفتاح).",
     reverse_words: "يعكس كل كلمة: تجد الكنز → دجت زنكلا"
   };
@@ -340,7 +332,7 @@ function updateHelp(){
   if(m === "num_ar"){
     helpText.textContent =
 `(أرقام) ترقيم الحروف العربية
-- داخل الكلمة: 03 05 08 أو 08 05 03 (حسب خيار العكس)
+- داخل الكلمة: 08 05 03 (حسب خيار العكس)
 - بين الكلمات: |
 - التلميح: اكتب عدة أزواج مثل: ا=01، ب=02...
 
@@ -372,7 +364,7 @@ function escapeHtml(s){
 
 function renderBoxesPreview(){
   const m = elMode.value;
-  const v = (elOut.value||"").trim();
+  const v = stripBidi((elOut.value||"").trim());
 
   if(m !== "num_ar" || !v.includes("|")){
     previewLabel.style.display="none";
@@ -421,11 +413,11 @@ function decrypt(){
 }
 
 async function copyOut(){
-  try{ await navigator.clipboard.writeText(elOut.value); alert("تم النسخ ✅"); }
+  try{ await navigator.clipboard.writeText(stripBidi(elOut.value)); alert("تم النسخ ✅"); }
   catch{ elOut.select(); document.execCommand("copy"); alert("تم النسخ ✅"); }
 }
 function swapOut(){
-  elPlain.value = elOut.value;
+  elPlain.value = stripBidi(elOut.value);
   elOut.value = "";
   renderBoxesPreview();
 }
@@ -450,7 +442,7 @@ function genFull(){
 
 /** ===== Print Card ===== */
 function printCard(){
-  const cipher = (elOut.value||"").trim();
+  const cipher = stripBidi((elOut.value||"").trim());
   if(!cipher){ alert("شفّر النص أولاً ثم اطبع."); return; }
 
   const m = elMode.value;
