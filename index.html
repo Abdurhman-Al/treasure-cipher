@@ -24,7 +24,7 @@
     .small { font-size: 12px; color:#666; }
     .hr { height:1px; background:#eee; margin:16px 0; }
 
-    /* الناتج: نخليه RTL دائمًا عشان ترتيب الكلمات يكون صحيح */
+    /* الناتج: RTL (قد ينعكس ترتيب الكلمات في بعض المتصفحات، لذلك وفرنا زر النسخ الخاص) */
     #out{
       direction: rtl;
       unicode-bidi: plaintext;
@@ -98,7 +98,7 @@
             <input type="checkbox" id="flipInsideWord" checked />
             <span>عكس الأرقام داخل الكلمة (مثل: 08 05 03)</span>
           </div>
-          <div class="small">اتركه شغال عشان يطلع مثل ورقتك.</div>
+          <div class="small">اتركه شغال عشان يطلع مثل بطاقتك.</div>
         </div>
 
         <div>
@@ -126,9 +126,17 @@
       <button class="primary" id="encryptBtn">شفّر</button>
       <button class="secondary" id="decryptBtn">فك التشفير</button>
       <button class="secondary" id="copyBtn">نسخ الناتج</button>
+
+      <!-- ✅ جديد: نسخ للواتس/تلقرام -->
+      <button class="secondary" id="copyShareBtn">نسخ للواتس/تلقرام</button>
+
       <button class="secondary" id="swapBtn">بدّل (الناتج ← النص)</button>
       <button class="secondary" id="clearBtn">مسح</button>
       <button class="secondary" id="printBtn">🖨️ طباعة بطاقة</button>
+    </div>
+
+    <div class="small" style="margin-top:6px;">
+      زر “نسخ للواتس/تلقرام” ينسخ النص **بنفس ترتيب المعاينة/الطباعة** حتى لو خانة الناتج تقلب الكلمات.
     </div>
 
     <label>الناتج</label>
@@ -156,10 +164,6 @@ const normMap = new Map([["أ","ا"],["إ","ا"],["آ","ا"],["ٱ","ا"],["ة","
 const norm = ch => normMap.get(ch) ?? ch;
 
 function pad2(n){ return String(n).padStart(2,"0"); }
-
-// ✅ عشان نضمن ترتيب الكلمات ما ينقلب داخل textarea:
-// نغلف كل "كلمة مشفرة بالأرقام" بعوازل اتجاه (LRI...PDI)
-function ltrIsolate(s){ return "\u2066" + s + "\u2069"; }
 function stripBidi(s){ return (s ?? "").replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, ""); }
 
 function shiftAr(ch, s){
@@ -198,7 +202,6 @@ function reverseEachWord(text){
 /** ===== (أرقام) Mapping ===== */
 function makeOrder(style){
   const base = ALPH.split("");
-
   if(style === "rev") return [...base].reverse();
 
   if(style === "interleave"){
@@ -212,7 +215,6 @@ function makeOrder(style){
     }
     return out;
   }
-
   return base;
 }
 
@@ -220,7 +222,6 @@ function makeMapping(style){
   const order = makeOrder(style);
   const map = new Map();
   const inv = new Map();
-
   for(let i=0;i<order.length;i++){
     let num;
     if(style === "odd") num = 1 + 2*i;
@@ -249,8 +250,7 @@ function encodeNumbers(text, style, flipInside){
     return toks.join(" ");
   });
 
-  // ✅ هنا السر: نغلف كل كلمة بعازل LTR حتى ما تنقلب الكلمات داخل textarea
-  return encWords.map(ltrIsolate).join(" | ");
+  return encWords.join(" | ");
 }
 
 function decodeNumbers(text, style, flipInside){
@@ -271,7 +271,7 @@ function decodeNumbers(text, style, flipInside){
       if(/^\d+$/.test(tok)){
         const n = parseInt(tok,10);
         out += inv.get(n) || "�";
-      }else out += tok;
+      } else out += tok;
     }
     return out;
   });
@@ -312,12 +312,11 @@ const toggleHelpBtn = document.getElementById("toggleHelpBtn");
 
 function updateModeUI(){
   const m = elMode.value;
-
   numControls.style.display = (m === "num_ar") ? "block" : "none";
   document.getElementById("keyWrap").style.display = (m === "caesar_ar") ? "block" : "none";
 
   const hints = {
-    num_ar: "✅ تم إصلاح ترتيب الكلمات في الناتج. داخل الكلمة أرقام بمسافة، وبين الكلمات |",
+    num_ar: "الأرقام مفصولة بمسافة داخل الكلمة، و | بين الكلمات. (المعاينة/الطباعة هي المرجع).",
     caesar_ar: "قيصر: إزاحة الحروف بعدد ثابت (أدخل رقم المفتاح).",
     reverse_words: "يعكس كل كلمة: تجد الكنز → دجت زنكلا"
   };
@@ -335,24 +334,19 @@ function updateHelp(){
 - داخل الكلمة: 08 05 03 (حسب خيار العكس)
 - بين الكلمات: |
 - التلميح: اكتب عدة أزواج مثل: ا=01، ب=02...
-
-الأنماط:
-- متسلسل / متناوب / معكوس / فردي / زوجي
-`;
+الأنماط: متسلسل/متناوب/معكوس/فردي/زوجي`;
   } else if(m === "caesar_ar"){
     helpText.textContent =
 `(حروف) الإزاحة (قيصر)
 - المفتاح رقم (مثلاً 3)
 - شفّر: يحرك الحروف للأمام
-- فك: يرجع الحروف للخلف بنفس الرقم
-`;
+- فك: يرجع الحروف للخلف بنفس الرقم`;
   } else {
     helpText.textContent =
 `(حروف) عكس كل كلمة
 - لا يحتاج مفتاح
 - يعكس ترتيب الحروف داخل كل كلمة فقط
-مثال: تجد الكنز → دجت زنكلا
-`;
+مثال: تجد الكنز → دجت زنكلا`;
   }
 }
 
@@ -362,18 +356,31 @@ function escapeHtml(s){
   }[c]));
 }
 
+/* المعاينة تعتمد على النص “النظيف” */
+function getPreviewWordsFromCipher(cipherRaw){
+  const cipher = stripBidi((cipherRaw||"").trim());
+  if(!cipher) return [];
+  if(!cipher.includes("|")) return [cipher];
+  return cipher.split("|").map(s=>s.trim()).filter(Boolean);
+}
+
 function renderBoxesPreview(){
   const m = elMode.value;
-  const v = stripBidi((elOut.value||"").trim());
-
-  if(m !== "num_ar" || !v.includes("|")){
+  if (m !== "num_ar"){
     previewLabel.style.display="none";
     previewBoxes.style.display="none";
     previewBoxes.innerHTML="";
     return;
   }
 
-  const words = v.split("|").map(s=>s.trim()).filter(Boolean);
+  const words = getPreviewWordsFromCipher(elOut.value);
+  if(words.length <= 1){
+    previewLabel.style.display="none";
+    previewBoxes.style.display="none";
+    previewBoxes.innerHTML="";
+    return;
+  }
+
   previewBoxes.innerHTML = words.map(w => `<div class="boxword">${escapeHtml(w)}</div>`).join("");
   previewLabel.style.display="block";
   previewBoxes.style.display="flex";
@@ -412,21 +419,58 @@ function decrypt(){
   renderBoxesPreview();
 }
 
-async function copyOut(){
-  try{ await navigator.clipboard.writeText(stripBidi(elOut.value)); alert("تم النسخ ✅"); }
-  catch{ elOut.select(); document.execCommand("copy"); alert("تم النسخ ✅"); }
+async function copyText(txt){
+  try{ await navigator.clipboard.writeText(txt); alert("تم النسخ ✅"); }
+  catch{
+    elOut.value = txt;
+    elOut.focus();
+    elOut.select();
+    document.execCommand("copy");
+    alert("تم النسخ ✅");
+  }
 }
-function swapOut(){
-  elPlain.value = stripBidi(elOut.value);
-  elOut.value = "";
-  renderBoxesPreview();
+
+function copyOut(){
+  copyText(stripBidi(elOut.value || ""));
 }
+
+/* ✅ جديد: نسخ للواتس/تلقرام (نفس ترتيب المعاينة/الطباعة) */
+function copyForShare(){
+  const m = elMode.value;
+  const raw = elOut.value || "";
+  if(!raw.trim()){ alert("شفّر النص أولاً"); return; }
+
+  if(m === "num_ar"){
+    const words = getPreviewWordsFromCipher(raw);
+
+    // صيغة مناسبة للواتس/تلقرام:
+    // - كل كلمة في سطر (أوضح)
+    // - ثم سطر للتلميح إن وجد
+    const cipherBlock = words.join("\n");
+    const hint = (elHintText.value || "").trim();
+    const msg =
+`🔐 لغز الكنز
+${cipherBlock}
+${hint ? `\n🗝️ المفتاح: ${hint}` : ""}`;
+
+    copyText(msg);
+    return;
+  }
+
+  // للحروف (قيصر/عكس كلمة): ننسخ الناتج كما هو + مفتاح قيصر إن وجد
+  const cipher = stripBidi(raw).trim();
+  let extra = "";
+  if(m === "caesar_ar"){
+    const k = (elKey.value || "").trim();
+    if(k) extra = `\n🗝️ المفتاح: ${k}`;
+  }
+  copyText(`🔐 لغز الكنز\n${cipher}${extra}`);
+}
+
+function swapOut(){ elPlain.value = stripBidi(elOut.value); elOut.value=""; renderBoxesPreview(); }
 function clearAll(){
-  elPlain.value="";
-  elOut.value="";
-  elKey.value="";
-  elHintText.value="";
-  elFullKeyText.value="";
+  elPlain.value=""; elOut.value=""; elKey.value="";
+  elHintText.value=""; elFullKeyText.value="";
   renderBoxesPreview();
 }
 
@@ -505,6 +549,7 @@ function printCard(){
 document.getElementById("encryptBtn").addEventListener("click", encrypt);
 document.getElementById("decryptBtn").addEventListener("click", decrypt);
 document.getElementById("copyBtn").addEventListener("click", copyOut);
+document.getElementById("copyShareBtn").addEventListener("click", copyForShare);
 document.getElementById("swapBtn").addEventListener("click", swapOut);
 document.getElementById("clearBtn").addEventListener("click", clearAll);
 document.getElementById("printBtn").addEventListener("click", printCard);
