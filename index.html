@@ -478,20 +478,26 @@ function printCard(){
     fullKey = buildFullKey(style);
   }
 
-  // build cipherHTML safely (fixed: force LTR for numeric modes to avoid bidi reversal)
+  // build cipherHTML safely: show boxes/container RTL, but force numeric content inside each box to LTR
   let cipherHTML = "";
   const numericModes = ["arabic_numbers", "polybius_ar", "keyed_numbers"];
-  const forceLtrStyle = numericModes.includes(elMode.value)
-    ? "direction:ltr;unicode-bidi:plaintext;text-align:left;"
-    : "";
+  const isNumericMode = numericModes.includes(elMode.value);
 
-  if (printBoxes && cipher.includes("|")){
+  if (printBoxes && cipher.includes("|")) {
     const boxes = cipher.split("|").filter(Boolean)
-      .map(w => `<div style="border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;${forceLtrStyle}">${w}</div>`)
-      .join("");
-    cipherHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;">${boxes}</div>`;
+      .map(w => {
+        // force LTR inside each box so numbers keep natural order,
+        // but container will be RTL so boxes appear from right→left
+        return `<div style="direction:ltr;unicode-bidi:plaintext;border:1px solid #bbb;border-radius:12px;padding:10px 12px;font-size:18px;font-weight:800;margin:4px;">${w}</div>`;
+      }).join("");
+    cipherHTML = `<div style="display:flex;gap:10px;flex-wrap:wrap;direction:rtl;align-items:flex-start;">${boxes}</div>`;
   } else {
-    cipherHTML = `<div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;${forceLtrStyle}">${cipher}</div>`;
+    // single-line presentation: keep page RTL, but wrap numeric content in LTR so numbers don't reverse
+    if (isNumericMode) {
+      cipherHTML = `<div style="direction:rtl;"><div style="direction:ltr;unicode-bidi:plaintext;border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipher}</div></div>`;
+    } else {
+      cipherHTML = `<div style="direction:rtl;"><div style="border:1px dashed #999;border-radius:12px;padding:12px;font-size:18px;word-break:break-word;">${cipher}</div></div>`;
+    }
   }
 
   const html = `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"/>
@@ -547,8 +553,8 @@ toggleHelpBtn.addEventListener("click", ()=>{
   toggleHelpBtn.textContent = helpPanel.classList.contains("open") ? "إخفاء الشرح" : "إظهار الشرح";
 });
 
-elMode.addEventListener("change", ()=>{updateHint();updateKeyedVisibility(); updateHelp(); 
-  updateOutDirection();   // ← هذا السطر الجديد
+elMode.addEventListener("change", ()=>{updateHint();updateKeyedVisibility(); updateHelp();
+  updateOutDirection();
 });
 
 
