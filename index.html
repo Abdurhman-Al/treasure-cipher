@@ -53,6 +53,8 @@
       text-align:right;
     }
     code { background:#f6f6f6; padding: 2px 6px; border-radius: 6px; }
+
+    .tog { display:flex; gap:10px; align-items:center; font-weight:800; margin-top:8px; }
   </style>
 </head>
 
@@ -86,28 +88,35 @@
       <div class="hr"></div>
       <label>إعدادات (الأرقام)</label>
 
-      <label>نمط الترقيم</label>
-      <select id="numStyle">
-        <option value="seq">متسلسل: ا=01، ب=02…</option>
-        <option value="interleave">متناوب: ا=01، ب=15، ت=02…</option>
-        <option value="rev">معكوس: ا=28، ب=27…</option>
-        <option value="odd">فردي: ا=01، ب=03، ت=05…</option>
-        <option value="even">زوجي: ا=02، ب=04، ت=06…</option>
-      </select>
+      <div class="row">
+        <div>
+          <label>نمط الترقيم</label>
+          <select id="numStyle">
+            <option value="seq">متسلسل: ا=01، ب=02…</option>
+            <option value="interleave">متناوب: ا=01، ب=15، ت=02…</option>
+            <option value="rev">معكوس: ا=28، ب=27…</option>
+            <option value="odd">فردي: ا=01، ب=03، ت=05…</option>
+            <option value="even">زوجي: ا=02، ب=04، ت=06…</option>
+          </select>
 
-      <div class="row" style="margin-top:10px;">
+          <!-- ✅ زر تشغيل/إيقاف العكس -->
+          <div class="tog">
+            <input type="checkbox" id="flipInsideWord" checked />
+            <span>عكس الأرقام داخل الكلمة (مثل: 08 05 03)</span>
+          </div>
+          <div class="small">إذا طلع ترتيب غلط في جهاز/متصفح، جرّب إلغاء هذا الخيار.</div>
+        </div>
+
         <div>
           <label>عدد أزواج التلميح</label>
           <input id="hintCount" type="number" min="2" max="28" value="6" />
           <div class="small">مثلاً 6 → يطبع 6 أزواج فقط (للمتسابقين).</div>
         </div>
-        <div>
-          <label>توليد</label>
-          <div class="btns" style="margin-top:0;">
-            <button class="secondary" id="genHintBtn">توليد تلميح</button>
-            <button class="secondary" id="genFullKeyBtn">توليد المفتاح كامل (للمنظّم)</button>
-          </div>
-        </div>
+      </div>
+
+      <div class="btns">
+        <button class="secondary" id="genHintBtn">توليد تلميح</button>
+        <button class="secondary" id="genFullKeyBtn">توليد المفتاح كامل (للمنظّم)</button>
       </div>
 
       <label>التلميح (المفتاح الذي تعطيه للمتسابق)</label>
@@ -116,7 +125,7 @@
       <label>المفتاح كامل (اختياري للمنظّم فقط)</label>
       <textarea id="fullKeyText" placeholder="سيظهر هنا المفتاح كامل"></textarea>
 
-      <div class="small">ملاحظة: داخل الكلمة الأرقام تفصل بمسافة، وبين الكلمات <code>|</code>. ✅ والأرقام داخل كل كلمة تُعكس تلقائياً لتناسب القراءة العربية.</div>
+      <div class="small">داخل الكلمة الأرقام تفصل بمسافة، وبين الكلمات <code>|</code>.</div>
     </div>
 
     <div class="btns">
@@ -196,7 +205,7 @@ function makeOrder(style){
   }
 
   if(style === "interleave"){
-    const half = Math.ceil(base.length/2); // 14
+    const half = Math.ceil(base.length/2);
     const A = base.slice(0, half);
     const B = base.slice(half);
     const out=[];
@@ -207,19 +216,19 @@ function makeOrder(style){
     return out;
   }
 
-  return base; // seq / odd / even
+  return base;
 }
 
 function makeMapping(style){
   const order = makeOrder(style);
-  const map = new Map(); // char -> num
-  const inv = new Map(); // num -> char
+  const map = new Map();
+  const inv = new Map();
 
   for(let i=0;i<order.length;i++){
     let num;
-    if(style === "odd") num = 1 + 2*i;       // 1..55
-    else if(style === "even") num = 2 + 2*i; // 2..56
-    else num = i + 1; // 1..28
+    if(style === "odd") num = 1 + 2*i;
+    else if(style === "even") num = 2 + 2*i;
+    else num = i + 1;
 
     map.set(order[i], num);
     inv.set(num, order[i]);
@@ -227,10 +236,8 @@ function makeMapping(style){
   return {order, map, inv};
 }
 
-/** ===== (أرقام) Encode/Decode
-    المطلوب: عكس الأرقام داخل كل كلمة مثل الصورة (08 05 03)
-*/
-function encodeNumbers(text, style){
+/** ===== (أرقام) Encode/Decode (مع خيار العكس) ===== */
+function encodeNumbers(text, style, flipInside){
   const {map} = makeMapping(style);
   const words = (text ?? "").trim().split(/\s+/).filter(Boolean);
 
@@ -238,29 +245,24 @@ function encodeNumbers(text, style){
     const toks=[];
     for(const ch0 of w){
       const ch = norm(ch0);
-      if(ALPH.includes(ch)){
-        toks.push(pad2(map.get(ch)));
-      }else{
-        toks.push(`_${ch0}_`);
-      }
+      if(ALPH.includes(ch)) toks.push(pad2(map.get(ch)));
+      else toks.push(`_${ch0}_`);
     }
-    // ✅ عكس داخل الكلمة (هذا هو المطلوب)
-    toks.reverse();
+    if(flipInside) toks.reverse();
     return toks.join(" ");
   });
 
   return encWords.join(" | ");
 }
 
-function decodeNumbers(text, style){
+function decodeNumbers(text, style, flipInside){
   const {inv} = makeMapping(style);
   const t = (text ?? "").trim();
   const parts = t.split("|").map(s=>s.trim()).filter(Boolean);
 
   const outWords = parts.map(part=>{
     const toks = part.split(/\s+/).filter(Boolean);
-    // ✅ لأن التشفير يعكس داخل الكلمة، نفكها بعكس مرة ثانية قبل التحويل للحروف
-    toks.reverse();
+    if(flipInside) toks.reverse();
 
     let out="";
     for(const tok of toks){
@@ -303,6 +305,7 @@ const elNumStyle = document.getElementById("numStyle");
 const elHintCount = document.getElementById("hintCount");
 const elHintText = document.getElementById("hintText");
 const elFullKeyText = document.getElementById("fullKeyText");
+const elFlipInside = document.getElementById("flipInsideWord");
 
 const previewLabel = document.getElementById("previewLabel");
 const previewBoxes = document.getElementById("previewBoxes");
@@ -322,7 +325,7 @@ function updateModeUI(){
   elOut.classList.add(numeric ? "ltr" : "rtl");
 
   const hints = {
-    num_ar: "داخل الكلمة: أرقام مفصولة بمسافة، وبين الكلمات | ✅ (الأرقام داخل كل كلمة معكوسة لتناسب القراءة العربية)",
+    num_ar: "داخل الكلمة: أرقام مفصولة بمسافة، وبين الكلمات | (جرّب تشغيل/إيقاف عكس داخل الكلمة)",
     caesar_ar: "قيصر: إزاحة الحروف بعدد ثابت (أدخل رقم المفتاح).",
     reverse_words: "يعكس كل كلمة: تجد الكنز → دجت زنكلا"
   };
@@ -337,7 +340,7 @@ function updateHelp(){
   if(m === "num_ar"){
     helpText.textContent =
 `(أرقام) ترقيم الحروف العربية
-- داخل الكلمة: 08 05 03  (✅ معكوس داخل الكلمة)
+- داخل الكلمة: 03 05 08 أو 08 05 03 (حسب خيار العكس)
 - بين الكلمات: |
 - التلميح: اكتب عدة أزواج مثل: ا=01، ب=02...
 
@@ -390,7 +393,7 @@ function encrypt(){
   const m = elMode.value;
 
   if(m === "num_ar"){
-    elOut.value = encodeNumbers(text, elNumStyle.value);
+    elOut.value = encodeNumbers(text, elNumStyle.value, elFlipInside.checked);
   } else if(m === "caesar_ar"){
     elOut.value = caesarEncrypt(text, elKey.value);
   } else if(m === "reverse_words"){
@@ -405,7 +408,7 @@ function decrypt(){
 
   try{
     if(m === "num_ar"){
-      elOut.value = decodeNumbers(text, elNumStyle.value);
+      elOut.value = decodeNumbers(text, elNumStyle.value, elFlipInside.checked);
     } else if(m === "caesar_ar"){
       elOut.value = caesarDecrypt(text, elKey.value);
     } else if(m === "reverse_words"){
@@ -524,6 +527,7 @@ toggleHelpBtn.addEventListener("click", ()=>{
 
 elMode.addEventListener("change", updateModeUI);
 elNumStyle.addEventListener("change", ()=>{ if(elMode.value==="num_ar") updateHelp(); });
+elFlipInside.addEventListener("change", ()=>{ if(elMode.value==="num_ar") encrypt(); });
 
 /** start */
 updateModeUI();
