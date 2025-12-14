@@ -10,6 +10,18 @@
     h1 { margin: 0 0 12px; font-size: 22px; }
     label { display:block; margin: 10px 0 6px; font-weight: 700; }
     textarea, input, select { width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid #ccc; font-size: 15px; }
+    /* اتجاهات الإخراج */
+#out.ltr {
+  direction: ltr;
+  unicode-bidi: plaintext;
+  text-align: left;
+}
+#out.rtl {
+  direction: rtl;
+  unicode-bidi: plaintext;
+  text-align: right;
+}
+
     textarea { min-height: 110px; resize: vertical; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .btns { display:flex; gap:10px; flex-wrap: wrap; margin-top: 12px; }
@@ -424,6 +436,7 @@ function encrypt(){
   else if (m==="keyed_numbers"){
     const style=document.getElementById("mapStyle").value;
     elOut.value = keyedEncode(text, style);
+    updateOutDirection();
   }
   else if (m==="caesar_ar") elOut.value = caesarEncrypt(text, elKey.value);
   else if (m==="vigenere_ar") elOut.value = vigenereEncrypt(text, elKey.value);
@@ -534,11 +547,21 @@ toggleHelpBtn.addEventListener("click", ()=>{
   toggleHelpBtn.textContent = helpPanel.classList.contains("open") ? "إخفاء الشرح" : "إظهار الشرح";
 });
 
-elMode.addEventListener("change", ()=>{ updateHint(); updateKeyedVisibility(); updateHelp(); });
+elMode.addEventListener("change", ()=>{updateHint();updateKeyedVisibility(); updateHelp(); 
+  updateOutDirection();   // ← هذا السطر الجديد
+});
+
 
 updateHint();
 updateKeyedVisibility();
 updateHelp();
+function updateOutDirection(){
+  const m = elMode.value;
+  const numericModes = ["arabic_numbers", "polybius_ar", "keyed_numbers"];
+  elOut.classList.remove("ltr", "rtl");
+  elOut.classList.add(numericModes.includes(m) ? "ltr" : "rtl");
+}
+updateOutDirection();
 </script>
 </body>
 </html>
